@@ -582,7 +582,7 @@ void set_motor_pos(int id, float value, float motor_id_pos_dt)
         // lets you know if you received a message that you
         // have not yet read.
         if(angle_ctrl_client[id].trajectory_angular_displacement_.IsFresh()) {
-          lmg3_msg.x = angle_ctrl_client[id].trajectory_angular_displacement_.get_reply();
+          lmg3_msg.y = angle_ctrl_client[id].trajectory_angular_displacement_.get_reply();
         }
       }
       break;
