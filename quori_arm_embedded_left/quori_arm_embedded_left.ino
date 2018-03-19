@@ -161,7 +161,7 @@ void CallbackLeftArmPos (const geometry_msgs::Vector3& cmd_msg){
       }
     else{
       motor_1_pos_cmd = arm2motor_1(cmd_msg.x-joint_1_pos_sync_0,cmd_msg.y-joint_2_pos_sync_0)+motor_1_pos_offset;
-      motor_2_pos_cmd = arm2motor_2(cmd_msg.x-joint_1_pos_sync_0,cmd_msg.y-joint_2_pos_sync_0)+motor_2_pos_offset; 
+      motor_2_pos_cmd = arm2motor_2(cmd_msg.x-joint_1_pos_sync_0,cmd_msg.y-joint_2_pos_sync_0)+motor_2_pos_offset;
     }
     motor_2_pos_dt = motor_1_pos_dt;//TODO change the message type to have 4 slots instead of 3 so both times can be unique.
     control_mode = POS;
@@ -285,6 +285,16 @@ void setup()
     state_data += "slip_not_synced";  
   }
   //TODO: add motor gain set command
+  /*motor 0 Kp:10.00
+motor 0 Ki:100.00
+motor 0 Kd:0.00
+motor 1 Kp:10.00
+motor 1 Ki:100.00
+motor 1 Kd:0.00
+*/
+  //set_motor_gains(0, float kp, float ki, float kd);
+  //set_motor_gains(0, 10 , 100, 0);
+ //set_motor_gains(1, 10 , 100, 0);
   
   Serial.flush();
 }
@@ -325,7 +335,6 @@ void loop(){
     //Update arm
     move_arms();
     state_data += "moving arms";
-  
   }
   }
 }
@@ -353,9 +362,9 @@ void ros_telemetry(){
   lmo3_msg.z=0;
   pub_MLeftOffset.publish(&lmo3_msg);
 
-  lmg3_msg.x=motor_1_pos_cmd;
-  lmg3_msg.y=motor_2_pos_cmd;
-  lmg3_msg.z=0;
+  //lmg3_msg.x=motor_1_pos_cmd;//see set_motor command
+  //lmg3_msg.y=motor_2_pos_cmd;
+  //lmg3_msg.z=0;
   pub_MLeftGoal.publish(&lmg3_msg);
   
   char charBuf[50];
@@ -453,7 +462,7 @@ bool shoulderAngleLimiter (){
 // Function used to convert from arm joint goal, alpha is J1, beta is felxion(windmill) is J2 abduction(flapping) to motor goal.
 float arm2motor_1(float alpha, float beta){
   //converts the arm axis to the motors axis with gear ratios. can be used for position or velocity
-       return G_RATIO*(alpha  + beta);
+       return float(G_RATIO)*(alpha  + beta);
        //return alpha * G_ratio - beta * G_ratio;
 }
 
@@ -461,7 +470,7 @@ float arm2motor_1(float alpha, float beta){
 float arm2motor_2(float alpha, float beta){
   //converts the arm axis to the motors axis with gear ratios.  can be used for position or velocity
        //return alpha * G_RATIO + beta * G_RATIO;
-       return G_RATIO*(alpha - beta);
+       return float(G_RATIO)*(alpha - beta);
 }
 
 // Function gets the current position of the arm and updates the offset for the relationship between the motors and the arm
@@ -504,18 +513,78 @@ void coast_left_arm(){
 }
 
 // Creates and sends message to a motor rloading a trajectory to follow.
-void set_motor_pos(int id, int value, float motor_id_pos_dt)
+void set_motor_pos(int id, float value, float motor_id_pos_dt)
 {
-  //angle_ctrl_client[id].trajectory_angular_displacement_.set(com[id],value);// trajectory cmd
-  //angle_ctrl_client[id].trajectory_duration_.set(com[id],motor_id_pos_dt);// ^
-  angle_ctrl_client[id].ctrl_angle_.set(com[id],value); // position control with no duration or speed set. Use either the two trajectory cmds or this
+  angle_ctrl_client[id].trajectory_angular_displacement_.set(com[id],value);// trajectory cmd
+  angle_ctrl_client[id].trajectory_duration_.set(com[id],motor_id_pos_dt);// ^
+  //angle_ctrl_client[id].ctrl_angle_.set(com[id],value); // position control with no duration or speed set. Use either the two trajectory cmds or this
   com[id].GetTxBytes(write_communication_buffer,write_communication_length);
+  
+  bool debug_cmd = 1;
+  uint8_t *rx_data; // temporary pointer to received type+data bytes
+  uint8_t rx_length; // number of received type+data bytes
   switch(id){
     case 0:
       Serial1.write((uint8_t*)write_communication_buffer,sizeof(uint8_t[static_cast<int>(write_communication_length)]));
+      if (debug_cmd){
+        delay(READ_DELAY);
+        angle_ctrl_client[id].trajectory_angular_displacement_.get(com[id]);// trajectory cmd
+        Serial1.write((uint8_t*)write_communication_buffer,sizeof(uint8_t[static_cast<int>(write_communication_length)]));
+      //May need to play with this delay.
+      delay(READ_DELAY);
+      // Reads however many bytes are currently available
+      read_communication_length = Serial1.readBytes(read_communication_buffer, Serial1.available());
+      // Puts the recently read bytes into com’s receive queue
+      com[id].SetRxBytes(read_communication_buffer,read_communication_length);
+      
+      // while we have message packets to parse
+      while(com[id].PeekPacket(&rx_data,&rx_length)){
+        // Remember time of received packet
+        communication_time_last = millis();
+        // Share that packet with all client objects
+        angle_ctrl_client[id].ReadMsg(com[id],rx_data,rx_length);
+        // Once we’re done with the message packet, drop it
+        com[id].DropPacket();
+      }
+        // Check if we have any fresh data
+        // Checking for fresh data is not required, it simply
+        // lets you know if you received a message that you
+        // have not yet read.
+        if(angle_ctrl_client[id].trajectory_angular_displacement_.IsFresh()) {
+          lmg3_msg.x = angle_ctrl_client[id].trajectory_angular_displacement_.get_reply();
+        }
+      }
       break;
     case 1:
       Serial3.write((uint8_t*)write_communication_buffer,sizeof(uint8_t[static_cast<int>(write_communication_length)]));
+       if (debug_cmd){
+        delay(READ_DELAY);
+        angle_ctrl_client[id].trajectory_angular_displacement_.get(com[id]);// trajectory cmd
+        Serial3.write((uint8_t*)write_communication_buffer,sizeof(uint8_t[static_cast<int>(write_communication_length)]));
+      //May need to play with this delay.
+      delay(READ_DELAY);
+      // Reads however many bytes are currently available
+      read_communication_length = Serial3.readBytes(read_communication_buffer, Serial3.available());
+      // Puts the recently read bytes into com’s receive queue
+      com[id].SetRxBytes(read_communication_buffer,read_communication_length);
+      
+      // while we have message packets to parse
+      while(com[id].PeekPacket(&rx_data,&rx_length)){
+        // Remember time of received packet
+        communication_time_last = millis();
+        // Share that packet with all client objects
+        angle_ctrl_client[id].ReadMsg(com[id],rx_data,rx_length);
+        // Once we’re done with the message packet, drop it
+        com[id].DropPacket();
+      }
+        // Check if we have any fresh data
+        // Checking for fresh data is not required, it simply
+        // lets you know if you received a message that you
+        // have not yet read.
+        if(angle_ctrl_client[id].trajectory_angular_displacement_.IsFresh()) {
+          lmg3_msg.x = angle_ctrl_client[id].trajectory_angular_displacement_.get_reply();
+        }
+      }
       break;
   }
 }
@@ -591,8 +660,6 @@ bool get_motor_pos(int id)
         }
         break;
   }
-  
-
   
 }
 
