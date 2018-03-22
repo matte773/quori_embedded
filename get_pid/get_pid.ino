@@ -22,7 +22,7 @@
 #define R3  38.74
 #define G_RATIO 13.0276//(R4 * R2 )/ (R1 * R3 ) //12.971262261 
 #define DT 1.0/LOOPTIME
-#define READ_DELAY 2
+#define READ_DELAY 10
 #define JOINT_2_UPP_LIMIT  1.2
 #define JOINT_2_LOW_LIMIT -1.2
 #define SENSOR_MAX 16383.0
@@ -136,6 +136,7 @@ void setup()
 /*                                                 */
 /***************************************************/
 void loop(){
+  Serial.println(" ");
   Serial.print("motor 0 Kp:");
   get_motor_gains(0, 1,0,0);
   Serial.print("motor 0 Ki:");
@@ -143,6 +144,7 @@ void loop(){
   Serial.print("motor 0 Kd:");
   get_motor_gains(0, 0,0,1);
   delay(1000);
+  Serial.println(" ");
   Serial.print("motor 1 Kp:");
   get_motor_gains(1, 1,0,0);
   Serial.print("motor 1 Ki:");
@@ -150,6 +152,7 @@ void loop(){
   Serial.print("motor 1 Kd:");
   get_motor_gains(1, 0,0,1);
   delay(1000);
+  Serial.println(" ");
 }
 
 
