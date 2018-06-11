@@ -501,7 +501,7 @@ void coast_left_arm(){
 }
 
 // Creates and sends message to a motor rloading a trajectory to follow.
-void set_motor_pos(int id, int value, float motor_id_pos_dt)
+void set_motor_pos(int id, float value, float motor_id_pos_dt)
 {
   //angle_ctrl_client[id].trajectory_angular_displacement_.set(com[id],value);// trajectory cmd
   //angle_ctrl_client[id].trajectory_duration_.set(com[id],motor_id_pos_dt);// ^
