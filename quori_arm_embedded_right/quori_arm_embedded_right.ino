@@ -22,7 +22,7 @@
 #define R3  38.74
 #define G_RATIO 13.0276//(R4 * R2 )/ (R1 * R3 ) //12.971262261 
 #define DT 1.0/LOOPTIME
-#define READ_DELAY 2
+#define READ_DELAY 2      // here we change the rate of message
 #define JOINT_2_UPP_LIMIT  1.2
 #define JOINT_2_LOW_LIMIT -1.2
 #define SENSOR_MAX 16383.0
@@ -220,7 +220,28 @@ void CallbackSyncLeftArmOverride (const std_msgs::Bool& cmd_msg){
 }
 
 
+void CallbackLeftArmVel (const geometry_msgs::Vector3& cmd_msg){
+  if (cmd_msg.z <= -1){
+    set_motor_coast(0);
+    set_motor_coast(1);
+    state_leftarm = COAST_STATE;
+    state_data += "coasting request";
+  }
+  else{
+    last_command_time=micros();
+    state_leftarm = MOVE_STATE;
+    motor_1_pos_dt  = cmd_msg.z;
+    if (motor_1_pos_dt <0.01){// catch timing input error. bound it by 10ms
+      motor_1_pos_dt = 0.025;
+    }
+    
+    joint_1_vel_cmd = cmd_msg.x;
+    control_mode = VEL;
+  } 
+}
 
+
+ros::Subscriber<geometry_msgs::Vector3> sub_leftarmvel("/quori/arm_right/cmd_vel", CallbackLeftArmVel); //subscriber 
 ros::Subscriber<geometry_msgs::Vector3> sub_leftarmpos("/quori/arm_right/cmd_pos", CallbackLeftArmPos); //subscriber 
 ros::Subscriber<std_msgs::Empty> sub_leftarmsync("/quori/arm_right/sync_slip", CallbackSyncLeftArmSlip); //
 ros::Subscriber<geometry_msgs::Vector3> sub_leftarmPID1("/quori/arm_right/set_pid1", CallbackLeftArmSetPID1); //subscriber  
@@ -243,6 +264,7 @@ void setup()
   nh.advertise(pub_MLeftOffset);
   nh.advertise(pub_MLeftGoal);
   nh.advertise(pub_State);
+  nh.subscribe(sub_leftarmvel);
   nh.subscribe(sub_leftarmpos);
   nh.subscribe(sub_leftarmposdir);
   nh.subscribe(sub_leftarmsync);
@@ -265,8 +287,8 @@ void setup()
   angleSensor1.close();// close after each init to allow spi to start again
   angleSensor2.init();
   delay(100);
-  angleSensor1.setZeroPosition(12856);  //(3295) Set zero positions based on calibration
-  angleSensor2.setZeroPosition(3121);
+  angleSensor1.setZeroPosition(8140);  //(3295) Set zero positions based on calibration
+  angleSensor2.setZeroPosition(13735); // 0-2^14-1
 
   // Initialize UART serial ports
   Serial.begin(115200);   // for communication with PC
@@ -416,8 +438,9 @@ void move_arms(){
   else if (control_mode == VEL ){
     // velocity control
     if (safe2moveLeft()){
-      set_motor_speed(0,arm2motor_1(joint_1_vel_cmd,joint_2_vel_cmd));
-      set_motor_speed(1,arm2motor_2(joint_1_vel_cmd,joint_2_vel_cmd));
+      //set_motor_speed(0,arm2motor_1(joint_1_vel_cmd,joint_2_vel_cmd));
+      //set_motor_speed(1,arm2motor_2(joint_1_vel_cmd,joint_2_vel_cmd));
+      set_motor_speed(0,joint_1_vel_cmd);
     }
   }
   
@@ -638,11 +661,15 @@ void set_motor_gains(int id, float kp, float ki, float kd)
 }
 
 // Creates and sends a message to a motor requesting a velocity be achieved by the motor.
-void set_motor_speed(int id, int value)
+void set_motor_speed(int id, float value)
 {
-  if (value>100){
+  /*if (value>100){
     value = 100;// limit the speed to only what the motor can achieve. currently its 100 rads/sec
   }
+  if(value <-100){
+    value = -100;
+  }*/
+  state_data = String(value);
   angle_ctrl_client[id].ctrl_velocity_.set(com[id], value);
   com[id].GetTxBytes(write_communication_buffer,write_communication_length);
   switch(id){

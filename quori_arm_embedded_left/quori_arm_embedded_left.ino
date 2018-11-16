@@ -267,8 +267,8 @@ void setup()
   angleSensor1.close();// close after each init to allow spi to start again
   angleSensor2.init();
   delay(100);
-  angleSensor1.setZeroPosition(1936);  //(3295) Set zero positions based on calibration
-  angleSensor2.setZeroPosition(3270);
+  angleSensor1.setZeroPosition(5033);  //(3295) Set zero positions based on calibration
+  angleSensor2.setZeroPosition(13735);
 
   // Initialize UART serial ports
   Serial.begin(115200);   // for communication with PC
