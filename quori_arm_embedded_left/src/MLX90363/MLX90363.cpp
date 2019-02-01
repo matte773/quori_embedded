@@ -56,6 +56,33 @@ MLX90363::MLX90363(uint8_t sspin) : slave_select(sspin)
     SPI.setDataMode(SPI_MODE1);
     pinMode (slave_select, OUTPUT);
     digitalWrite(slave_select,HIGH);
+    zero_position = 0;
+}
+
+void MLX90363::InitializeSPI(int mosi, int miso, int sck)
+{
+    pinMode(mosi, OUTPUT); 
+    pinMode(sck, OUTPUT); 
+    pinMode(miso, OUTPUT); 
+    SPI.setMOSI(mosi);  //11
+    SPI.setSCK(sck);    //13
+    SPI.setMISO(miso);  //12
+    SPI.begin();
+    SPI.setBitOrder(MSBFIRST);
+    SPI.setClockDivider(SPI_CLOCK_DIV8);
+    SPI.setDataMode(SPI_MODE1);
+}
+
+void MLX90363::SetZeroPosition()
+{
+    SendGET3();
+    value = (uint16_t)(receive_buffer[0] | ((receive_buffer[1]&0x3F)<<8));
+    zero_position = value;
+}
+
+void MLX90363::SetZeroPosition(int16_t offset)
+{
+    zero_position = offset;
 }
 
 bool MLX90363::SendGET3()
@@ -101,8 +128,11 @@ bool MLX90363::Checksum(uint8_t *message)
 int16_t MLX90363::ReadAngle()
 {
     value = (uint16_t)(receive_buffer[0] | ((receive_buffer[1]&0x3F)<<8));
-    if (value >= 8192)
+    value = value - zero_position;
+    if (value >= 8191)
       value -= 16384;
+    if (value <= -8192)
+      value += 16384;
     return value;
 }
 

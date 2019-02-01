@@ -11,6 +11,9 @@ class MLX90363
 {
 public:
     MLX90363(uint8_t ss_pin);
+    static void InitializeSPI(int,int,int);
+    void SetZeroPosition();
+    void SetZeroPosition(int16_t);
     bool SendGET3();
     bool SendNOP();
     int16_t ReadAngle();
@@ -21,6 +24,7 @@ private:
     uint8_t send_buffer[8];
     uint8_t crc;
     int16_t value;
+    int16_t zero_position;
     int i,j;
     bool SendSPI();
     bool Checksum(uint8_t *message);

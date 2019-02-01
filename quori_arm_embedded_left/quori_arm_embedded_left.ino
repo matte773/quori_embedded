@@ -225,6 +225,10 @@ void CallbackSyncLeftArmOverride (const std_msgs::Bool& cmd_msg){
 
 }
 
+void CallbackLeftArmZeroPos (const std_msgs::Empty& msg) {
+  angleSensor1.SetZeroPosition();
+  angleSensor2.SetZeroPosition();
+}
 
 
 ros::Subscriber<geometry_msgs::Vector3> sub_leftarmpos("/quori/arm_left/cmd_pos", CallbackLeftArmPos); //subscriber 
@@ -233,6 +237,7 @@ ros::Subscriber<geometry_msgs::Vector3> sub_leftarmPID1("/quori/arm_left/set_pid
 ros::Subscriber<geometry_msgs::Vector3> sub_leftarmPID2("/quori/arm_left/set_pid2", CallbackLeftArmSetPID2); //subscriber 
 ros::Subscriber<geometry_msgs::Vector3> sub_leftarmposdir("/quori/arm_left/cmd_pos_dir", CallbackLeftArmPosDir); //subscriber 
 ros::Subscriber<std_msgs::Bool> sub_leftarmoverride("/quori/arm_left/limit_override", CallbackSyncLeftArmOverride); //
+ros::Subscriber<std_msgs::Empty> sub_zeropos("/quori/arm_left/zeropos", CallbackLeftArmZeroPos);
 
 
 /***************************************************/
@@ -255,29 +260,13 @@ void setup()
   nh.subscribe(sub_leftarmPID1);
   nh.subscribe(sub_leftarmPID2);
   nh.subscribe(sub_leftarmoverride);
-  
+  nh.subscribe(sub_zeropos);
 
-  
-  // Sets the SPI pins, needed for the teensy board
-  pinMode(11, OUTPUT); 
-  pinMode(13, OUTPUT); 
-  pinMode(12, OUTPUT); 
-  SPI.setMOSI(11);
-  SPI.setSCK(13);
-  SPI.setMISO(12);
+  // Start SPI (MOSI=11, MISO=12, SCK=13)
+  MLX90363::InitializeSPI(11,12,13);  // InitializeSPI only once for all sensors (ZXie)
 
-//  // Initialize AS5048A sensors
-//  angleSensor1.init();
-//  angleSensor1.close();// close after each init to allow spi to start again
-//  angleSensor2.init();
-//  delay(100);
 //  angleSensor1.setZeroPosition(5033);  //(3295) Set zero positions based on calibration
 //  angleSensor2.setZeroPosition(13735);
-  // Start SPI
-  SPI.begin();
-  SPI.setBitOrder(MSBFIRST);
-  SPI.setClockDivider(SPI_CLOCK_DIV8);
-  SPI.setDataMode(SPI_MODE1);
 
   // Initialize UART serial ports
   Serial.begin(115200);   // for communication with PC
@@ -287,6 +276,7 @@ void setup()
   delay(500);
   //update arm positions
   update_states();
+
   if (sync_slip_drive()){
     Serial.println("System initialized !");  
     state_data += "slip_synced";
