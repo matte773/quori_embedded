@@ -9,7 +9,9 @@
 #include <std_msgs/Bool.h>
 #include <Arduino.h>                              // required before wiring_private.h
 #include <wiring_private.h>
-#include <AS5048A.h>    //documentation: https://github.com/ZoetropeLabs/AS5048A-Arduino
+//#include <AS5048A.h>    //documentation: https://github.com/ZoetropeLabs/AS5048A-Arduino
+#include "src/MLX90363/MLX90363.h"
+#include <SPI.h>
 
 #define UPDATE_MSG_TIME 10000
 #define LOOPTIME 10000
@@ -46,8 +48,10 @@
 /**********************/
 /*       Sensor       */
 /**********************/
-AS5048A angleSensor1(9);  // sensor for joint 1 //Andrew- swapped these two to reflect current equations
-AS5048A angleSensor2(10);  // sensor for joint 2
+//AS5048A angleSensor1(9);  // sensor for joint 1 //Andrew- swapped these two to reflect current equations
+//AS5048A angleSensor2(10);  // sensor for joint 2
+MLX90363 angleSensor1(9);
+MLX90363 angleSensor2(10);
 
 
 /**********************/
@@ -262,13 +266,18 @@ void setup()
   SPI.setSCK(13);
   SPI.setMISO(12);
 
-  // Initialize AS5048A sensors
-  angleSensor1.init();
-  angleSensor1.close();// close after each init to allow spi to start again
-  angleSensor2.init();
-  delay(100);
-  angleSensor1.setZeroPosition(5033);  //(3295) Set zero positions based on calibration
-  angleSensor2.setZeroPosition(13735);
+//  // Initialize AS5048A sensors
+//  angleSensor1.init();
+//  angleSensor1.close();// close after each init to allow spi to start again
+//  angleSensor2.init();
+//  delay(100);
+//  angleSensor1.setZeroPosition(5033);  //(3295) Set zero positions based on calibration
+//  angleSensor2.setZeroPosition(13735);
+  // Start SPI
+  SPI.begin();
+  SPI.setBitOrder(MSBFIRST);
+  SPI.setClockDivider(SPI_CLOCK_DIV8);
+  SPI.setDataMode(SPI_MODE1);
 
   // Initialize UART serial ports
   Serial.begin(115200);   // for communication with PC
@@ -379,10 +388,14 @@ void ros_telemetry(){
 
 // Read and adjust the position of the arm joints.
 void update_states(){
-  joint_1_pos_meas =(int)angleSensor1.getRotation();
-  joint_2_pos_meas =(int)angleSensor2.getRotation();
+//  joint_1_pos_meas =(int)angleSensor1.getRotation();
+//  joint_2_pos_meas =(int)angleSensor2.getRotation();
  // joint_1_pos_meas =(int)angleSensor1.getRawRotation();// for calibration
   //joint_2_pos_meas =(int)angleSensor2.getRawRotation();//^
+  angleSensor1.SendGET3();
+  angleSensor2.SendGET3();
+  joint_1_pos_meas =(int)angleSensor1.ReadAngle();
+  joint_2_pos_meas =(int)angleSensor2.ReadAngle();
   
   //TODO
 
@@ -817,5 +830,3 @@ void set_motor_speed(int id, float value)
       break;
   }
 }
-
-
