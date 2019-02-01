@@ -22,7 +22,8 @@
 #define R4 75.001
 #define R2  85.09
 #define R3  38.74
-#define G_RATIO 13.0276//(R4 * R2 )/ (R1 * R3 ) //12.971262261 
+#define G_RATIO1 12.18//(R4 * R2 )/ (R1 * R3 ) //12.971262261 
+#define G_RATIO2 12.17//(R4 * R2 )/ (R1 * R3 ) //12.971262261 
 #define DT 1.0/LOOPTIME
 #define READ_DELAY 2
 #define JOINT_2_UPP_LIMIT  1.2
@@ -464,19 +465,26 @@ bool shoulderAngleLimiter (){
   }
 }
 
+float joint_angle_trans(float angle) {
+  if (angle > PI) return joint_angle_trans(angle - 2 * PI);
+  else if (angle <= -PI) return joint_angle_trans(angle + 2 * PI);
+  else return angle;
+}
+
 // Function used to convert from arm joint goal, alpha is J1, beta is felxion(windmill) is J2 abduction(flapping) to motor goal.
 float arm2motor_1(float alpha, float beta){
   //converts the arm axis to the motors axis with gear ratios. can be used for position or velocity
-       //return float(G_RATIO)*(alpha  + beta);
-       return float(G_RATIO)*(alpha  + beta);       
+       alpha = joint_angle_trans(alpha);
+       return G_RATIO1*(alpha  + beta);
        //return alpha * G_ratio - beta * G_ratio;
 }
 
 // Function used to convert from arm joint goal to motor goal.
 float arm2motor_2(float alpha, float beta){
   //converts the arm axis to the motors axis with gear ratios.  can be used for position or velocity
+       alpha = joint_angle_trans(alpha);
        //return alpha * G_RATIO + beta * G_RATIO;
-       return float(G_RATIO)*(alpha - beta);
+       return G_RATIO2*(alpha - beta);
 }
 
 // Function gets the current position of the arm and updates the offset for the relationship between the motors and the arm
