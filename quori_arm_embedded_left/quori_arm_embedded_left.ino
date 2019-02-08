@@ -226,9 +226,16 @@ void CallbackSyncLeftArmOverride (const std_msgs::Bool& cmd_msg){
 
 }
 
-void CallbackLeftArmZeroPos (const std_msgs::Empty& msg) {
+void CallbackLeftArmSetZero (const std_msgs::Empty& msg) {
   angleSensor1.SetZeroPosition();
   angleSensor2.SetZeroPosition();
+}
+
+void CallbackLeftArmSetZeroPos (const geometry_msgs::Vector3& msg) {
+  int16_t offsert1 = map(msg.x, -PI, PI, -8192, 8191);
+  int16_t offsert2 = map(msg.y, -PI, PI, -8192, 8191);
+  angleSensor1.SetZeroPosition(offsert1);
+  angleSensor2.SetZeroPosition(offsert2);
 }
 
 
@@ -238,7 +245,8 @@ ros::Subscriber<geometry_msgs::Vector3> sub_leftarmPID1("/quori/arm_left/set_pid
 ros::Subscriber<geometry_msgs::Vector3> sub_leftarmPID2("/quori/arm_left/set_pid2", CallbackLeftArmSetPID2); //subscriber 
 ros::Subscriber<geometry_msgs::Vector3> sub_leftarmposdir("/quori/arm_left/cmd_pos_dir", CallbackLeftArmPosDir); //subscriber 
 ros::Subscriber<std_msgs::Bool> sub_leftarmoverride("/quori/arm_left/limit_override", CallbackSyncLeftArmOverride); //
-ros::Subscriber<std_msgs::Empty> sub_zeropos("/quori/arm_left/zeropos", CallbackLeftArmZeroPos);
+ros::Subscriber<std_msgs::Empty> sub_setzero("/quori/arm_left/setzero", CallbackLeftArmSetZero);
+ros::Subscriber<geometry_msgs::Vector3> sub_setzeropos("/quori/arm_left/setzeropos", CallbackLeftArmSetZeroPos);
 
 
 /***************************************************/
@@ -261,7 +269,8 @@ void setup()
   nh.subscribe(sub_leftarmPID1);
   nh.subscribe(sub_leftarmPID2);
   nh.subscribe(sub_leftarmoverride);
-  nh.subscribe(sub_zeropos);
+  nh.subscribe(sub_setzero);
+  nh.subscribe(sub_setzeropos);
 
   // Start SPI (MOSI=11, MISO=12, SCK=13)
   MLX90363::InitializeSPI(11,12,13);  // InitializeSPI only once for all sensors (ZXie)
