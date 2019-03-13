@@ -773,7 +773,7 @@ bool get_motor_pos(int id)
         }
         break;
   }
-  
+  return 0;
 }
 
 
