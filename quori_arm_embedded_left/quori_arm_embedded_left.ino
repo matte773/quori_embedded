@@ -26,8 +26,8 @@
 #define G_RATIO2 12.17//(R4 * R2 )/ (R1 * R3 ) //12.971262261 
 #define DT 1.0/LOOPTIME
 #define READ_DELAY 2
-#define JOINT_2_UPP_LIMIT  1.2
-#define JOINT_2_LOW_LIMIT -1.2
+#define JOINT_2_UPP_LIMIT  1.35
+#define JOINT_2_LOW_LIMIT -1.35
 #define SENSOR_MAX 16383.0
 #define SENSOR_HALF 8191.5
 #define JOINT_1_CALI 12856
@@ -286,6 +286,9 @@ void setup()
   delay(500);
   //update arm positions
   update_states();
+
+  angleSensor1.SetZeroPosition(map(2.231, -PI, PI, -8192, 8191));
+  angleSensor2.SetZeroPosition(map(0.586, -PI, PI, -8192, 8191));
 
   if (sync_slip_drive()){
     Serial.println("System initialized !");  
