@@ -287,7 +287,7 @@ void setup()
   //update arm positions
   update_states();
 
-  angleSensor1.SetZeroPosition(map(2.231, -PI, PI, -8192, 8191));
+  angleSensor1.SetZeroPosition(map(0.663, -PI, PI, -8192, 8191));
   angleSensor2.SetZeroPosition(map(0.586, -PI, PI, -8192, 8191));
 
   if (sync_slip_drive()){
