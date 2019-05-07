@@ -385,8 +385,8 @@ void ros_telemetry(){
 // Read and adjust the position of the arm joints.
 void update_states(){
   waist_pos = analogRead(ANALOGPIN);
-  joint_1_pos_meas =(int)angleSensor1.getRotation();
-  joint_2_pos_meas =(int)angleSensor2.getRotation();
+  //joint_1_pos_meas =(int)angleSensor1.getRotation();
+  //joint_2_pos_meas =(int)angleSensor2.getRotation();
  // joint_1_pos_meas =(int)angleSensor1.getRawRotation();// for calibration
   //joint_2_pos_meas =(int)angleSensor2.getRawRotation();//^
   
@@ -410,14 +410,14 @@ void update_states(){
   }
   //convert to radians
   joint_1_pos_meas = joint_1_pos_meas*2*PI;
-  joint_2_pos_meas = joint_2_pos_meas*2*PI;
+  //joint_2_pos_meas = joint_2_pos_meas*2*PI;
   
   //to reverse direction pos = 1-pos;
 
   // get motor positions. may not be nessesary now, but will help cath drive slip
   state_data += "getting_mpos";
   get_motor_pos(0);
-  get_motor_pos(1);
+  //get_motor_pos(1);
   // catch and correct for slip.
   //sync_slip_drive();
   // get updated cmds from buffer. prep new commands to be sent
@@ -431,13 +431,13 @@ void move_arms(){
     //position control code.
     // Load next knots in the buffer 
     set_motor_pos(0,motor_1_pos_cmd,motor_1_pos_dt);
-    set_motor_pos(1,motor_2_pos_cmd,motor_2_pos_dt);
+    //set_motor_pos(1,motor_2_pos_cmd,motor_2_pos_dt);
   }
   else if (control_mode == VEL ){
     // velocity control
     if (safe2moveLeft()){
       set_motor_speed(0,arm2motor_1(joint_1_vel_cmd,joint_2_vel_cmd));
-      set_motor_speed(1,arm2motor_2(joint_1_vel_cmd,joint_2_vel_cmd));
+     // set_motor_speed(1,arm2motor_2(joint_1_vel_cmd,joint_2_vel_cmd));
     }
   }
   
