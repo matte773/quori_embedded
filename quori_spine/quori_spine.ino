@@ -10,6 +10,7 @@
 #include <Arduino.h>                              // required before wiring_private.h
 #include <wiring_private.h>
 #include <AS5048A.h>    //documentation: https://github.com/ZoetropeLabs/AS5048A-Arduino
+#include "src/MLX90363/MLX90363.h"
 
 #define UPDATE_MSG_TIME 10000
 #define LOOPTIME 10000
@@ -47,8 +48,8 @@
 /**********************/
 /*       Sensor       */
 /**********************/
-AS5048A angleSensor1(9);  // sensor for joint 1 //Andrew- swapped these two to reflect current equations
-AS5048A angleSensor2(10);  // sensor for joint 2
+MLX90363 angleSensor1(9);
+MLX90363 angleSensor2(10);
 
 
 /**********************/
@@ -255,25 +256,11 @@ void setup()
   nh.subscribe(sub_leftarmoverride);
   
 
-  
-  // Sets the SPI pins, needed for the teensy board
-  pinMode(11, OUTPUT); 
-  pinMode(13, OUTPUT); 
-  pinMode(12, OUTPUT); 
-  SPI.setMOSI(11);
-  SPI.setSCK(13);
-  SPI.setMISO(12);
 
-  // Initialize AS5048A sensors
-  angleSensor1.init();
-  angleSensor1.close();// close after each init to allow spi to start again
-  angleSensor2.init();
-  delay(100);
-  angleSensor1.setZeroPosition(1936);  //(3295) Set zero positions based on calibration
-  angleSensor2.setZeroPosition(3270);
+  // Start SPI (MOSI=11, MISO=12, SCK=13)
+  MLX90363::InitializeSPI(11,12,13);  // InitializeSPI only once for all sensors (ZXie)
 
-  analogReadResolution(12);
-  waist_pos = analogRead(ANALOGPIN);  // read the input pin
+
 
   // Initialize UART serial ports
   Serial.begin(115200);   // for communication with PC
@@ -282,7 +269,10 @@ void setup()
   
   delay(500);
   //update arm positions
-  update_states();
+    update_states();
+  angleSensor1.SetZeroPosition(map(-0.668, -PI, PI, -8192, 8191));
+  angleSensor2.SetZeroPosition(map(-2.966, -PI, PI, -8192, 8191));
+
   if (sync_slip_drive()){
     Serial.println("System initialized !");  
     state_data += "slip_synced";
@@ -341,7 +331,7 @@ void loop(){
     cmd_timeout = 0;
     //Update arm
     move_arms();
-    state_data += "moving arms";
+    state_data += "moving waist";
   }
   }
 }
@@ -376,7 +366,6 @@ void ros_telemetry(){
   
   char charBuf[50];
   state_data.toCharArray(charBuf, 50); 
-  state_msg.data = charBuf;
   pub_State.publish(&state_msg);
   state_data = " ";
 
@@ -384,11 +373,8 @@ void ros_telemetry(){
 
 // Read and adjust the position of the arm joints.
 void update_states(){
-  waist_pos = analogRead(ANALOGPIN);
-  //joint_1_pos_meas =(int)angleSensor1.getRotation();
-  //joint_2_pos_meas =(int)angleSensor2.getRotation();
- // joint_1_pos_meas =(int)angleSensor1.getRawRotation();// for calibration
-  //joint_2_pos_meas =(int)angleSensor2.getRawRotation();//^
+  angleSensor2.SendGET3();
+  waist_pos =(int)angleSensor2.ReadAngle();
   
   //TODO
 
