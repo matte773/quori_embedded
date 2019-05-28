@@ -287,8 +287,8 @@ void setup()
   //update arm positions
   update_states();
 
-  angleSensor1.SetZeroPosition(map(-0.668, -PI, PI, -8192, 8191));
-  angleSensor2.SetZeroPosition(map(-2.966, -PI, PI, -8192, 8191));
+  angleSensor1.SetZeroPosition(map(-0.178, -PI, PI, -8192, 8191));//-0.668
+  angleSensor2.SetZeroPosition(map(2.53, -PI, PI, -8192, 8191));//-2.966
 
   if (sync_slip_drive()){
     Serial.println("System initialized !");  
