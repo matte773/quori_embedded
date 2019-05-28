@@ -396,8 +396,8 @@ void update_states(){
   state_data += "getting_mpos";
   get_motor_pos(0);
   get_motor_pos(1);
-  get_motor_torque(0);
-  get_motor_torque(1);
+  get_motor_current(0);
+  get_motor_current(1);
   // get updated cmds from buffer. prep new commands to be sent
 
   
@@ -606,7 +606,7 @@ bool get_motor_pos(int id)
 }
 
 // Creates and sends a message to a motor requesting the motor reply with its estimated torque. If the reply is read sucessfully the value is stored and the function returns true.
-bool get_motor_torque(int id)
+bool get_motor_current(int id)
 {
   
   safe_drive_client[id].est_motor_amps_.get(com[id]);
