@@ -30,7 +30,7 @@
 #define SENSOR_MAX 16383.0
 #define SENSOR_HALF 8191.5
 #define JOINT_1_CALI 12856
-#define MAX_I 0.225/0.1447 //max torque/1.447. this is an estimate. The correlation might not hold at higher speeds
+#define MAX_I 0.1/0.1447 //max torque/1.447. this is an estimate. The correlation might not hold at higher speeds
 
 
 // IQinetics Library
@@ -110,8 +110,6 @@ float motor_2_vel_cmd = 0;//^
 
 float motor_1_current = 0;
 float  motor_2_current = 0;
-
-float motor_max_I = MAX_I;
 
 float motor_1_pos = 0;
 float  motor_2_pos = 0;
@@ -238,9 +236,9 @@ void setup()
 
   //TODO: decide if we want the program to hang until this limit is set.
   while (!((abs(get_motor_maxI_(0)- MAX_I)<0.01) && (abs(get_motor_maxI_(1)-MAX_I)<0.01))){
-      safe_drive_client[0].motor_I_max_.set(com[0],motor_max_I);
+      safe_drive_client[0].motor_I_max_.set(com[0],MAX_I);
       send_max_I_motor_msg(0,MAX_I);
-      safe_drive_client[1].motor_I_max_.set(com[1],motor_max_I);
+      safe_drive_client[1].motor_I_max_.set(com[1],MAX_I);
       send_max_I_motor_msg(1,MAX_I);
   }
   state_data += "current_limit_set";
@@ -277,17 +275,6 @@ void loop(){
     ros_telemetry(); 
     }
     nh.spinOnce();
-  if (motor_max_request){
-    int count_out = 0;
-    while ( count_out <=10 && !((abs(get_motor_maxI_(0)-motor_max_I)<0.01) && (abs(get_motor_maxI_(1)-motor_max_I)<0.01) )){// change to exit logic after first successful message
-      safe_drive_client[0].motor_I_max_.set(com[0],motor_max_I);
-      send_max_I_motor_msg(0,motor_max_I);
-      send_max_I_motor_msg(1,motor_max_I);
-      count_out = count_out+1;
-    }
-    motor_max_request = 0;
-    state_data += "current_limit_set";
-  }
    // kill all motors if timeout. later it will check buffer for positions it may have run out of.
   if (shoulderAngleLimiter ()){
     //shoulderAngleLimiter will coast motors
@@ -371,8 +358,6 @@ void update_states(){
   state_data += "getting_mpos";
   get_motor_pos(0);
   get_motor_pos(1);
-  get_motor_current(0);
-  get_motor_current(1);
   // get updated cmds from buffer. prep new commands to be sent
 
   
@@ -690,7 +675,7 @@ float get_motor_maxI_(int id)
           return safe_drive_client[id].motor_I_max_.get_reply(); //successful get
         }
         else{
-          return 0;
+          return -1;
         }
         break;
     case 1:
@@ -719,7 +704,7 @@ float get_motor_maxI_(int id)
           return safe_drive_client[id].motor_I_max_.get_reply(); //successful get
         }
         else{
-          return 0;
+          return -1;
         }
         break;
   }
