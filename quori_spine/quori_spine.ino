@@ -9,7 +9,6 @@
 #include <std_msgs/Bool.h>
 #include <Arduino.h>                              // required before wiring_private.h
 #include <wiring_private.h>
-#include <AS5048A.h>    //documentation: https://github.com/ZoetropeLabs/AS5048A-Arduino
 #include "src/MLX90363/MLX90363.h"
 
 #define UPDATE_MSG_TIME 10000
@@ -199,7 +198,7 @@ void CallbackLeftArmPosDir (const geometry_msgs::Vector3& cmd_msg){
 
 void CallbackSyncLeftArmSlip (const std_msgs::Empty& cmd_msg){
   // reset angle of arm. TODO
-  update_states();
+    update_states();
   if (sync_slip_drive()){//check and run sync
     state_data += "slip_synced";
   }
@@ -416,7 +415,8 @@ void move_arms(){
   if (control_mode == POS){
     //position control code.
     // Load next knots in the buffer 
-    set_motor_pos(0,motor_1_pos_cmd,motor_1_pos_dt);
+    //set_motor_pos(0,motor_1_pos_cmd,motor_1_pos_dt);
+    set_motor_pos_dt(0,motor_1_pos_cmd,motor_1_pos_dt);
     //set_motor_pos(1,motor_2_pos_cmd,motor_2_pos_dt);
   }
   else if (control_mode == VEL ){
@@ -588,12 +588,12 @@ void set_motor_pos(int id, float value, float motor_id_pos_dt)
 
 void set_motor_pos_dt(int id, float value, float motor_id_pos_dt)
 {
-  //angle_ctrl_client[id].trajectory_angular_displacement_.set(com[id],value);// trajectory cmd
-  //angle_ctrl_client[id].trajectory_duration_.set(com[id],motor_id_pos_dt);// ^
-  angle_ctrl_client[id].ctrl_angle_.set(com[id],value); // position control with no duration or speed set. Use either the two trajectory cmds or this
+  angle_ctrl_client[id].trajectory_angular_displacement_.set(com[id],value);// trajectory cmd
+  angle_ctrl_client[id].trajectory_duration_.set(com[id],motor_id_pos_dt);// ^
+  //angle_ctrl_client[id].ctrl_angle_.set(com[id],value); // position control with no duration or speed set. Use either the two trajectory cmds or this
   com[id].GetTxBytes(write_communication_buffer,write_communication_length);
   
-  bool debug_cmd = 1;
+  bool debug_cmd = 0;
   uint8_t *rx_data; // temporary pointer to received type+data bytes
   uint8_t rx_length; // number of received type+data bytes
   switch(id){
@@ -809,5 +809,3 @@ void set_motor_speed(int id, float value)
       break;
   }
 }
-
-
