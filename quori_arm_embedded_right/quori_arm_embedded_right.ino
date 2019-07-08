@@ -290,6 +290,11 @@ void setup()
   angleSensor1.SetZeroPosition(map(-0.178, -PI, PI, -8192, 8191));//-0.668
   angleSensor2.SetZeroPosition(map(2.53, -PI, PI, -8192, 8191));//-2.966
 
+  angle_ctrl_client[0].timeout_.set(com[0],0.5);
+  angle_ctrl_client[0].timeout_.save(com[0]);
+  angle_ctrl_client[1].timeout_.set(com[1],0.5);
+  angle_ctrl_client[1].timeout_.save(com[1]);
+  
   if (sync_slip_drive()){
     Serial.println("System initialized !");  
     state_data += "slip_synced";

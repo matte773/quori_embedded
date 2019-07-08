@@ -1,3 +1,4 @@
+
 /*
  * rosserial Publisher Example
  * Prints "hello world!"
@@ -10,6 +11,7 @@
 #include <Arduino.h>                              // required before wiring_private.h
 #include <wiring_private.h>
 #include "src/MLX90363/MLX90363.h"
+
 
 #define UPDATE_MSG_TIME 10000
 #define LOOPTIME 10000
@@ -30,6 +32,14 @@
 
 
 // IQinetics Library
+//#include <bipbuffer.h>
+//#include <communication_interface.h>
+//#include <byte_queue.h>
+//#include <packet_finder.h>
+//#include <crc_helper.h>
+//#include <generic_interface.hpp>
+//#include <multi_turn_angle_control_client.hpp>
+
 #include "src/libiqinetics/inc/bipbuffer.h"
 #include "src/libiqinetics/inc/communication_interface.h"
 #include "src/libiqinetics/inc/byte_queue.h"
@@ -98,6 +108,7 @@ float motor_1_pos = 0;
 float motor_1_pos_cmd = 0;
 float motor_1_pos_dt = 0.01;
 bool cmd_timeout = 0;
+int dur = 1;
 char control_mode = 1;// 0 is position 1 is speed
 bool override_safety = 0;
 String state_data = "booting";
@@ -214,7 +225,10 @@ void setup()
   //update arm positions
   update_states();
   angleSensor2.SetZeroPosition(map(-2.966, -PI, PI, -8192, 8191));//TODO: set this gain
-
+  angle_ctrl_client[0].timeout_.set(com[0],0.5);
+  angle_ctrl_client[0].timeout_.save(com[0]);
+  angle_ctrl_client[1].timeout_.set(com[1],0.5);
+  angle_ctrl_client[1].timeout_.save(com[1]);
   //TODO: add motor gain set command
   /*motor 0 Kp:10.00
 motor 0 Ki:100.00
@@ -467,6 +481,7 @@ void set_motor_gains(int id, float kp, float ki, float kd)
 {
   if (kp>=0){
     angle_ctrl_client[id].angle_Kp_.set(com[id], kp);
+    angle_ctrl_client[id].angle_Kp_.save(com[id]);
     com[id].GetTxBytes(write_communication_buffer,write_communication_length);
     switch(id){
       case 0:
@@ -479,6 +494,7 @@ void set_motor_gains(int id, float kp, float ki, float kd)
   }
   if (ki>=0){
     angle_ctrl_client[id].angle_Ki_.set(com[id], ki);
+    angle_ctrl_client[id].angle_Ki_.save(com[id]);
     com[id].GetTxBytes(write_communication_buffer,write_communication_length);
     switch(id){
       case 0:
@@ -491,6 +507,7 @@ void set_motor_gains(int id, float kp, float ki, float kd)
   }
   if (kd>=0){
     angle_ctrl_client[id].angle_Kd_.set(com[id], kd);
+    angle_ctrl_client[id].angle_Kd_.save(com[id]);
     com[id].GetTxBytes(write_communication_buffer,write_communication_length);
     switch(id){
       case 0:

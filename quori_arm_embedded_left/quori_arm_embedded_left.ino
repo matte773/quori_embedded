@@ -232,7 +232,10 @@ void setup()
 
   angleSensor1.SetZeroPosition(map(0.663, -PI, PI, -8192, 8191));
   angleSensor2.SetZeroPosition(map(0.586, -PI, PI, -8192, 8191));
-
+  angle_ctrl_client[0].timeout_.set(com[0],0.5);
+  angle_ctrl_client[0].timeout_.save(com[0]);
+  angle_ctrl_client[1].timeout_.set(com[1],0.5);
+  angle_ctrl_client[1].timeout_.save(com[1]);
 
   //TODO: decide if we want the program to hang until this limit is set.
   while (!((abs(get_motor_maxI_(0)- MAX_I)<0.01) && (abs(get_motor_maxI_(1)-MAX_I)<0.01))){
