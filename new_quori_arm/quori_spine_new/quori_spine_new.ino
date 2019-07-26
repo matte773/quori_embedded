@@ -130,24 +130,20 @@ void CallbackWaistPosDir (const geometry_msgs::Vector3& cmd_msg){
   else{
     last_command_time=micros();
     state_waist = MOVE_STATE;
-    if (cmd_msg.z == 0){
-       motor_pos_cmd = cmd_msg.x;
-       control_mode = POS;
-    }
-    else{
-      control_mode = TRAJ;
-      if (cmd_msg.x == motor_pos_cmd  && cmd_msg.z == motor_1_pos_dt){
-        trajectory_state = OLD_TRAJ;//I assume you are just checking in
-      }
-      else{
-        motor_pos_cmd = cmd_msg.x;
-        motor_1_pos_dt  = cmd_msg.z;
-        if (motor_1_pos_dt <0.01){// catch timing input error. bound it by 10ms
-          motor_1_pos_dt = 0.01;
+
+    control_mode = TRAJ;
+        if (cmd_msg.x == motor_pos_cmd  && cmd_msg.z == motor_1_pos_dt){
+          trajectory_state = OLD_TRAJ;//I assume you are just checking in
         }
-        trajectory_state = NEW_TRAJ;//
-      }
-    }
+        else{
+          motor_pos_cmd = cmd_msg.x;
+          motor_1_pos_dt  = cmd_msg.z;
+          if (motor_1_pos_dt <0.01){// catch timing input error. bound it by 10ms
+            motor_1_pos_dt = 0.01;
+          }
+          trajectory_state = NEW_TRAJ;//
+        }
+    
   } 
 }
 
@@ -188,7 +184,8 @@ void setup()
   delay(500);
   //update arm positions
   update_states();
-  angleSensor.SetZeroPosition(map(-2.966, -PI, PI, -8192, 8191));//TODO: set this gain
+  angleSensor.SetZeroPosition(3810);//TODO: set this gain
+  //angleSensor.SetZeroPosition(map(1.4745, -PI, PI, -8192, 8191));//TODO: set this gain
   
   Serial.flush();
 }
@@ -275,12 +272,7 @@ void update_states(){
 
 //commands arms to move. Currently position and velocity modes are possible, but we only plan to use position.
 void move_motor(){
-  if (control_mode == POS){
-    //position control code.
-    // Load next knots in the buffer 
-    set_motor_pos(0,motor_pos_cmd);
-  }
-  else if (control_mode == TRAJ){
+  if (control_mode == TRAJ){
     //trajectory control code.
     // Load next knots in the buffer 
     if (trajectory_state == NEW_TRAJ){
@@ -311,22 +303,6 @@ void set_motor_coast(int id)
 {
   angle_ctrl_client[id].ctrl_coast_.set(com[id]);
   com[id].GetTxBytes(write_communication_buffer,write_communication_length);
-  switch(id){
-    case 0:
-      Serial1.write((uint8_t*)write_communication_buffer,sizeof(uint8_t[static_cast<int>(write_communication_length)]));
-      break;
-    case 1:
-      Serial3.write((uint8_t*)write_communication_buffer,sizeof(uint8_t[static_cast<int>(write_communication_length)]));
-      break;
-  }
-}
-
-// Creates and sends message to a motor rloading a trajectory to follow.
-void set_motor_pos(int id, float value)
-{
-  angle_ctrl_client[id].ctrl_angle_.set(com[id],value); // position control with no duration or speed set. Use either the two trajectory cmds or this
-  com[id].GetTxBytes(write_communication_buffer,write_communication_length);
-  
   switch(id){
     case 0:
       Serial1.write((uint8_t*)write_communication_buffer,sizeof(uint8_t[static_cast<int>(write_communication_length)]));
