@@ -27,6 +27,7 @@ protected:
   float Ki;           // integral gain
   float Kd;           // derivative gain
   float saturation;   // saturation value for control action, units of control u
+  float deadband;     // deadband value for control action, units of control u
   float feed_forward; // feed forward, units of control u
 
   // variables
@@ -58,6 +59,7 @@ public:
   void set_Ki(float);
   void set_Kd(float);
   void set_saturation(float);
+  void set_deadband(float);
   void set_feed_forward(float);
   void set_reference(float);
   void set_reference_dot(float);
@@ -68,6 +70,7 @@ public:
   float get_Ki();
   float get_Kd();
   float get_saturation();
+  float get_deadband();
   float get_feed_forward();
   float get_reference();
   float get_reference_dot();

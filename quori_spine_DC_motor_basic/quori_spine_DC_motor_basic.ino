@@ -1,7 +1,6 @@
 
 /*
- * rosserial Publisher Example
- * Prints "hello world!"
+ * This code controls the position of a motor to move the waist of the robot. The code will prevent the motor from moving if the waist is too close to colliding with the structure.
  */
 #define USE_USBCON
 #include <Arduino.h>                              // required before wiring_private.h
@@ -23,26 +22,6 @@
 #include "additional_serial.h"
 #include "LpfButter1.h"
 #include "pid_linear.hpp"
-//#include "RunningMedian.h"
-
-
-
-#define LOOPTIME 10000
-#define POS 0
-#define VEL 1
-#define TRAJ 2
-#define TICKS_PER_REV 16383
-#define G_RATIO 2.0
-#define READ_DELAY 2
-#define JOINT_UPP_LIMIT  29.0*3.1415/180.0
-#define JOINT_LOW_LIMIT  -14.0*3.1415/180.0
-#define MOTOR_UPP_LIMIT  29.0*3.1415/180.0*G_RATIO 
-#define MOTOR_LOW_LIMIT  -14.0*3.1415/180.0*G_RATIO 
-#define SENSOR_MAX 16383.0
-#define SENSOR_HALF 8191.5
-#define JOINT_1_CALI 12856
-#define ANALOGPIN 23
-#define MAX_VEL 100 // radians per second
 
 
 /**********************/
@@ -63,43 +42,15 @@ float prev_desired_MT_pos = 0; //radians
 float desired_MT_vel = 0; //radians/sec
 
 
-
-/*****************/
-/* Sensed Values */
-/*****************/
-// sensed motor velocities at a specific point in time
-float sensed_MT_v = 0.0;
-
-// Previously sensed velocities
-// Used in the current implementation of the low-pass filter
-float sensed_M1_v_prev = 0.0;
-float sensed_M2_v_prev = 0.0;
-float sensed_MT_v_prev = 0.0;
-
-int decoder_count_MT_prev = 0;
-
 /******************/
 /* Set Speed Vars */
 /******************/
-// motor PWMs
-
-int pwm_M1 = 0;
-int pwm_M2 = 0;
-int pwm_MT = 0;
-float M1_v_cmd = 0;
-float M2_v_cmd = 0;
 float MT_volts_cmd = 0;
 
-//motor serials
-int serial_M1 = 0;
-int serial_M2 = 0;
 int serial_MT = 0;
 
 // motor tags
 int turret_motor_tag = 1;
-int left_motor_tag = 2;
-int right_motor_tag = 3;
-
 
 
 /**********************/
@@ -110,11 +61,7 @@ int right_motor_tag = 3;
 PidLinear pos_MT_pid;
 
 //Butterworth filter for each motor. This value should be tuned.
-LpfButter1 mt_filter_speed(10,LOOPHZ);
 LpfButter1 mt_filter_position(10,LOOPHZ);
-
-//Running Median 
-//RunningMedian samples_MT = RunningMedian(5);
 
 /************************/
 /*        Timing        */
@@ -128,46 +75,33 @@ unsigned long command_timeout = CMD_TIMEOUT;
 /************************/
 /*    Timing            */
 /************************/
-unsigned long start_time; // Time at which the arduino starts
 float time_elapsed_micros; // microseconds
 float time_elapsed_millis; // time_elapsed converted
 float time_elapsed_secs;   //time elapsed in seconds
 float time_elapsed_secs_inv;   //time elapsed in seconds
 int loop_time_duration; // Timing loop time- for performance testing
-unsigned long last_debug_time = 0;//Timing tracker for debug messages.
-unsigned long last_time_4_section_debugger =0;
-int loop_time_error = 0;
-unsigned int avg_time = 0;
-int loop_times[3];
+
 
 /***************************/
 /*    State Variables      */
 /***************************/
-float joint_2_pos_meas; //measured input value 0 to 1
-float motor_1_vel_cmd = 0;//radians/second
 
-
-float waist_pos   = 0;
-int   waist_count = 0;
+float waist_pos   = 0; // radians
+int   waist_count = 0; //encoder raw value
 
 float motorKp = 0;
 float motorKd = 0;
 float motorKi = 0;
+
 float motor_pos = 0; //radians
-float motor_pos_cmd = 0;
-float motor_pos_dt = 0.01;
+
+
 bool cmd_timeout = 0;
-int dur = 1;
 char control_mode = 1;// 0 is position 1 is speed
 bool override_safety = 0;
-String state_data = "booting";
-char state_waist = 1;
-#define COAST_STATE 1
-#define MOVE_STATE 0
 
-#define OLD_TRAJ 0
-#define NEW_TRAJ 1
-char trajectory_state = OLD_TRAJ;
+String state_data = "booting";
+char state_waist = COAST_STATE;
 
 
 /***********************/
@@ -240,24 +174,23 @@ void setup()
   nh.subscribe(sub_leftarmPID1);
 
   // Start SPI (MOSI=11, MISO=12, SCK=13)
-  MLX90363::InitializeSPI(11,12,13);  // InitializeSPI only once for all sensors (ZXie)
+  MLX90363::InitializeSPI(11,12,13);
 
   // Initialize UART serial ports
   Serial.begin(115200);   // for communication with PC
   serial_setup();
-  //Serial1.begin(2000000);  // for motor 1 (inner)
-  //Serial3.begin(115200);  // for motor 2 (outter)
   
   delay(500);
-  //update arm positions
+  //update sensor position Zero
   update_states();
   angle_sensor_waist.SetZeroPosition(map(1.4942356348, -PI, PI, -8192, 8191));//TODO: Set this for each robot
-  angle_sensor_MT.SetZeroPosition(map(-2.82857513428, -PI, PI, -8192, 8191));//TODO: Set this for each robot 
+  angle_sensor_MT.SetZeroPosition(map(-1.91384649277, -PI, PI, -8192, 8191));//TODO: Set this for each robot 
 
-  pos_MT_pid.set_Kp(0.8);
-  pos_MT_pid.set_Ki(0.000);
-  pos_MT_pid.set_Kd(0.1);
+  pos_MT_pid.set_Kp(0.3);
+  pos_MT_pid.set_Ki(0.001);
+  pos_MT_pid.set_Kd(0.02);
   pos_MT_pid.set_saturation(1.0);// percent of motor voltage
+  pos_MT_pid.set_deadband(0.125);// percent of motor voltage
   pos_MT_pid.set_feed_forward(0.0);
   Serial.flush();
 }
@@ -270,6 +203,7 @@ void setup()
 void loop(){
   loop_time_duration = micros() - last_recorded_time;
   if (loop_time_duration >= LOOPTIME) { // ensures stable loop time
+    checkLoopTimeError();
     time_elapsed_secs = ((float)loop_time_duration) * 0.000001;
     time_elapsed_secs_inv = 1.0/time_elapsed_secs;// if loop is stable enough and readings are not too sensitive then comment this out and replace with contants DT and DT_INV
 
@@ -305,13 +239,17 @@ void loop(){
 /*          Support        */
 /***************************/
 
+void checkLoopTimeError(){
+  if (loop_time_duration > LOOPTIME+100) {
+    state_data += "loop time error";
+    state_data += String(loop_time_duration,DEC);
+  }
+}
 
 float count2rad(int count){
   return (float)count*3.1415/8191.0;
 }
 
-
-// Prepares and sends ROS rotopic messages
 // Prepares and sends ROS rotopic messages
 void ros_telemetry(){
 
@@ -352,7 +290,6 @@ void update_states(){
 //commands arms to move. Currently position and velocity modes are possible, but we only plan to use position.
 void move_motor(){
     set_motor_control(); // uncomment this and replace delete other code
-    //hardware_test_control();
     
 }
 
@@ -386,31 +323,16 @@ void set_motor_coast()
 {
  MT_volts_cmd = 0;
  pos_MT_pid.Reset();
- set_volts_of_turret(&MT_volts_cmd, &serial_MT);
-}
-
-void hardware_test_control() {
-  
-    pos_MT_pid.set_reference(desired_MT_pos);
-    if (desired_MT_pos == 0) {
-        // Deadband
-        MT_volts_cmd = 0;
-        pos_MT_pid.Reset();
-    }
-    else {
-      MT_volts_cmd = desired_MT_pos;//testing code. take out later
-    }
-    
-    set_volts_of_turret(&MT_volts_cmd, &serial_MT);
+ set_volts(&MT_volts_cmd, &serial_MT);
 }
 
 void set_motor_control() {
     pos_MT_pid.set_reference(desired_MT_pos);
-    pos_MT_pid.set_reference_dot((desired_MT_pos-prev_desired_MT_pos)*time_elapsed_secs_inv);//approximation
-    //pos_MT_pid.set_reference_dot(desired_MT_vel);
+    pos_MT_pid.set_reference_dot(desired_MT_vel);
+    //pos_MT_pid.set_reference_dot((desired_MT_pos-prev_desired_MT_pos)*time_elapsed_secs_inv);//approximation
     //float MT_feed_fwd = desired_MT_pos * 0.004022 + 0.0175;
     //pos_MT_pid.set_feed_forward(MT_feed_fwd);
     MT_volts_cmd = pos_MT_pid.PidCompute(motor_pos, time_elapsed_secs, time_elapsed_secs_inv);
  
-    set_volts_of_turret(&MT_volts_cmd, &serial_MT);
+    set_volts(&MT_volts_cmd, &serial_MT);
 }
