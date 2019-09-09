@@ -69,8 +69,6 @@ LpfButter1 mt_filter_position(10,LOOPHZ);
 unsigned long last_command_time     = 0;
 unsigned long last_recorded_time    = 0;
 unsigned long last_update_msg_time  = 0;
-#define CMD_TIMEOUT 500000 // one half second
-unsigned long command_timeout = CMD_TIMEOUT;
 
 /************************/
 /*    Timing            */
@@ -95,8 +93,6 @@ float motorKi = 0;
 
 float motor_pos = 0; //radians
 
-
-bool cmd_timeout = 0;
 char control_mode = 1;// 0 is position 1 is speed
 bool override_safety = 0;
 
@@ -128,6 +124,8 @@ void CallbackLeftArmPos (const geometry_msgs::Vector3& cmd_msg){
   if (cmd_msg.z <= -1){
     state_data += "coasting request";
     state_waist = COAST_STATE;
+    last_command_time=micros();
+    
   }
   else{
     last_command_time=micros();
@@ -139,7 +137,7 @@ void CallbackLeftArmPos (const geometry_msgs::Vector3& cmd_msg){
    // else{
        state_waist = MOVE_STATE;
        state_data += "cmd_recieved";
-       update_motor_goal(cmd_msg.x, cmd_msg.y); 
+       update_motor_goal(cmd_msg.x, cmd_msg.y);
 
    // } 
   }
@@ -184,7 +182,7 @@ void setup()
   //update sensor position Zero
   update_states();
   angle_sensor_waist.SetZeroPosition(map(1.55, -PI, PI, -8192, 8191));//TODO: Set this for each robot
-  angle_sensor_MT.SetZeroPosition(map(2.425, -PI, PI, -8192, 8191));//TODO: Set this for each robot ...-1.91384649277
+  angle_sensor_MT.SetZeroPosition(map(0.767, -PI, PI, -8192, 8191));//TODO: Set this for each robot ...-1.91384649277
 
   pos_MT_pid.set_Kp(1.0);
   pos_MT_pid.set_Ki(0.05);
@@ -219,8 +217,7 @@ void loop(){
     nh.spinOnce();
     
   if (safe2move()){   
-    if (state_waist == MOVE_STATE){
-      cmd_timeout = 0;
+    if ((state_waist == MOVE_STATE) & !cmdTimedout()){
       move_motor();
       state_data += "moving waist";
     }
@@ -268,6 +265,7 @@ void ros_telemetry(){
   state_msg.data = charBuf;
   pub_State.publish(&state_msg);
   state_data = " ";
+  
 
   }
 
@@ -299,12 +297,23 @@ bool safe2move(){
   return 1; 
  }
  else if (((waist_pos > JOINT_UPP_LIMIT) || (waist_pos< JOINT_LOW_LIMIT))){
-    state_data += "joint limit reached";
+    state_data += "joint limit reached"+String(waist_pos);
     return 0;
  }
   else{
     return 1;
   }
+}
+
+bool cmdTimedout(){
+ if (micros()-last_command_time>CMD_TIMEOUT){
+  state_data += "cmd_timedout";
+  return 1;
+ }
+ else{
+  return 0;
+ }
+  
 }
 
 // use this to prevent the velocity goal esitmate from not being handled properly

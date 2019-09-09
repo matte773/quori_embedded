@@ -11,7 +11,7 @@
 #define DT_INV                1.0/DT                   //inv dt in 1/seconds
 #define LOOPHZ                1.0/(LOOPTIME/1000000.0)    // Desired Hz of the main loop
 #define DEBUGTIME             100000                  // Desired speed of the main loop in microseconds
-#define COMMAND_TIMEOUT       250000                 //  packect timeout in microseconds
+#define CMD_TIMEOUT           250000                  // microseconds for robot to declare timeout
 #define UPDATE_MSG_TIME       10000                  // ROS communication rate set in microseconds
 #define RAD2DEG               180/PI
 
@@ -31,7 +31,3 @@
 
 
 #endif
-
-
-
-
