@@ -182,7 +182,7 @@ void setup()
   //update sensor position Zero
   update_states();
   angle_sensor_waist.SetZeroPosition(map(1.55, -PI, PI, -8192, 8191));//TODO: Set this for each robot
-  angle_sensor_MT.SetZeroPosition(map(-2.08, -PI, PI, -8192, 8191));//TODO: Set this for each robot ...-1.91384649277
+  angle_sensor_MT.SetZeroPosition(map(0.767, -PI, PI, -8192, 8191));//TODO: Set this for each robot ...-1.91384649277
 
   pos_MT_pid.set_Kp(1.0);
   pos_MT_pid.set_Ki(0.05);
