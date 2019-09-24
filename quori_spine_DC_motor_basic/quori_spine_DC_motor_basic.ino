@@ -210,7 +210,7 @@ void loop(){
     update_states();
 
     // send ROS Messages
-    if ((micros()-last_update_msg_time)>UPDATE_MSG_TIME or 1){ // or 1 makes the telemetry excute every loop
+    if ((micros()-last_update_msg_time)>UPDATE_MSG_TIME){ 
       last_update_msg_time = micros();//
       ros_telemetry();
     }
