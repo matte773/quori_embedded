@@ -13,14 +13,17 @@
 #include "src/MLX90363/MLX90363.h"
 #include <SPI.h>
 
-#define LOOPTIME 10000
+#define LOOPHZ   100.0
+#define LOOPTIME 1000000/LOOPHZ // in microseconds
 #define POS 0
 #define VEL 1
-#define TICKS_PER_REV 16383
+#define TICKS_PER_REV 16383.0
+#define TICKS2RADIANS 2.0*PI/TICKS_PER_REV
 #define READ_DELAY 2
 #define JOINT_2_UPP_LIMIT  1.3
 #define JOINT_2_LOW_LIMIT -1.3
-#define READ_TIMEOUT 4
+#define READ_TIMEOUT (1.0/LOOPHZ-4)/(2.0)
+#define MOTOR_BAUD_RATE 38400
 
 
 // IQinetics Library
@@ -81,7 +84,7 @@ float joint_1_pos_cmd = 0; // cmd in arm coordinate fram in radians
 float joint_2_pos_cmd = 0; //command input value
 float joint_1_pos_meas,joint_2_pos_meas; //measured input value 0 to 1
 
-float motor_1_pos = 0;
+float motor_1_pos = 0; // radians
 float  motor_2_pos = 0;
 float motorReadCode = 0; // 1 = only motor 1, 2= only motor 2, 3= motor 1 and 2, 0= no motor read
 float motor_1_pos_cmd = 0;
@@ -173,8 +176,8 @@ void setup()
 
   // Initialize UART serial ports
   Serial.begin(115200);   // for communication with PC
-  Serial1.begin(115200);  // for motor 1 (inner)
-  Serial3.begin(115200);  // for motor 2 (outter)
+  Serial1.begin(MOTOR_BAUD_RATE);  // for motor 1 (inner)
+  Serial3.begin(MOTOR_BAUD_RATE);  // for motor 2 (outter)
   
   delay(500);
   //update arm positions
@@ -199,27 +202,25 @@ void loop(){
     last_recorded_time = micros();
     //update arm positions
     update_states();
-
     nh.spinOnce();
- 
-   // kill all motors if timeout. later it will check buffer for positions it may have run out of.
-  if (shoulderAngleLimiter ()){
-    //shoulderAngleLimiter will coast motors
-    state_data += "angle limit";
-  }
-  else if (micros() - last_command_time > command_timeout){
-    coast_left_arm();
-    state_data += "cmd timeout";
-  }
-  else if (state_leftarm == COAST_STATE){
-    coast_left_arm();
-  }
-  else if (state_leftarm == MOVE_STATE){
-    //Update arm
-    move_arms();
-    state_data += "moving arms";
-  }
-  ros_telemetry(); 
+    // kill all motors if timeout. later it will check buffer for positions it may have run out of.
+    if (shoulderAngleLimiter ()){
+      //shoulderAngleLimiter will coast motors
+      state_data += "angle limit";
+    }
+    else if (micros() - last_command_time > command_timeout){
+      coast_left_arm();
+      state_data += "cmd timeout";
+    }
+    else if (state_leftarm == COAST_STATE){
+      coast_left_arm();
+    }
+    else if (state_leftarm == MOVE_STATE){
+      //Update arm
+      move_arms();
+      state_data += "moving arms";
+    }
+    ros_telemetry(); 
   }
 }
 
@@ -231,14 +232,14 @@ void loop(){
 // Prepares and sends ROS rotopic messages
 void ros_telemetry(){
 
-  lp3_msg.x=joint_1_pos_meas;
-  lp3_msg.y=joint_2_pos_meas;
-  lp3_msg.z=0;
+  lp3_msg.x = joint_1_pos_meas;
+  lp3_msg.y = joint_2_pos_meas;
+  lp3_msg.z = 0;
   pub_posLeft.publish(&lp3_msg);
   
-  lm3_msg.x=motor_1_pos;
-  lm3_msg.y=motor_2_pos;
-  lm3_msg.z=motorReadCode;
+  lm3_msg.x = motor_1_pos;
+  lm3_msg.y = motor_2_pos;
+  lm3_msg.z = motorReadCode;
   pub_MLeft.publish(&lm3_msg);
   
   char charBuf[50];
@@ -256,14 +257,10 @@ void update_states(){
   joint_1_pos_meas =(int)angleSensor1.ReadAngle();
   joint_2_pos_meas =(int)angleSensor2.ReadAngle();
 
-  joint_1_pos_meas = joint_1_pos_meas/TICKS_PER_REV;
-  joint_2_pos_meas = joint_2_pos_meas/TICKS_PER_REV;
-  
-  //convert to radians
-  joint_1_pos_meas = joint_1_pos_meas*2*PI;
-  joint_2_pos_meas = joint_2_pos_meas*2*PI;
+  joint_1_pos_meas = joint_1_pos_meas*TICKS2RADIANS;
+  joint_2_pos_meas = joint_2_pos_meas*TICKS2RADIANS;
 
-  // get motor positions. may not be nessesary now, but will help cath drive slip
+  // get motor positions and get read code for motor success
   motorReadCode = get_all_motor_pos();
 }
 
@@ -333,7 +330,7 @@ void set_motor_pos(int id, float value, float motor_id_pos_dt)
 }
 
 // Creates and sends a message to a motor requesting the motor reply with its position. If the reply is read sucessfully the value is stored and the function returns a code revealing which motors were successful.
-char get_all_motor_pos()
+char get_all_motor_pos2()
 {
   //Send request to each motor
   for (int id=0; id<=1; id++) {
@@ -348,6 +345,49 @@ char get_all_motor_pos()
   }
   // attempts to read from each motor in serial
   char MotorsReadCode = 0;
+  unsigned long read_start_time = millis();
+  read_communication_length = Serial1.readBytes(read_communication_buffer, Serial1.available());
+  parseSerialMsg(0);
+  read_communication_length = Serial3.readBytes(read_communication_buffer, Serial3.available());
+  parseSerialMsg(1);
+  while (~angle_ctrl_client[0].obs_angular_displacement_.IsFresh() && ~angle_ctrl_client[1].obs_angular_displacement_.IsFresh() && (millis()-read_start_time) <  READ_TIMEOUT) {
+    if (~angle_ctrl_client[0].obs_angular_displacement_.IsFresh()){
+      read_communication_length = Serial1.readBytes(read_communication_buffer, Serial1.available());
+      parseSerialMsg(0);
+    }
+    if (~angle_ctrl_client[1].obs_angular_displacement_.IsFresh()){
+      read_communication_length = Serial3.readBytes(read_communication_buffer, Serial3.available());
+      parseSerialMsg(1);
+    }  
+  }
+  if (angle_ctrl_client[0].obs_angular_displacement_.IsFresh()){
+        motor_1_pos = getMotorPosMsg(0);
+        MotorsReadCode = MotorsReadCode + 1;
+  }
+  if (angle_ctrl_client[1].obs_angular_displacement_.IsFresh()){
+        motor_2_pos = getMotorPosMsg(1);
+        MotorsReadCode = MotorsReadCode + 2;
+  } 
+ return MotorsReadCode;
+}
+
+// Creates and sends a message to a motor requesting the motor reply with its position. If the reply is read sucessfully the value is stored and the function returns a code revealing which motors were successful.
+char get_all_motor_pos()
+{
+  //Send request to each motor
+  for (int id=0; id<=1; id++) {
+    angle_ctrl_client[id].obs_angular_displacement_.get(com[id]);
+    com[id].GetTxBytes(write_communication_buffer,write_communication_length);
+    switch (id){
+      case 0:
+        Serial1.write((uint8_t*)write_communication_buffer,sizeof(uint8_t[static_cast<int>(write_communication_length)]));
+      case 1:
+        Serial3.write((uint8_t*)write_communication_buffer,sizeof(uint8_t[static_cast<int>(write_communication_length)]));
+    }
+    delay(1);
+  }
+  // attempts to read from each motor in serial
+  char MotorsReadCode = 0;
   for (int id=0; id<=1; id++) {
     unsigned long read_start_time = millis();
     switch(id){
@@ -359,7 +399,10 @@ char get_all_motor_pos()
         read_communication_length = Serial1.readBytes(read_communication_buffer, Serial1.available());
         parseSerialMsg(id);
       }
-      MotorsReadCode = MotorsReadCode + getMotorPosMsg(id);
+      if (angle_ctrl_client[id].obs_angular_displacement_.IsFresh()){
+        motor_1_pos = getMotorPosMsg(id);
+        MotorsReadCode = MotorsReadCode + 1;
+      }
     case 1:
       //May need to play with this delay.
       read_communication_length = Serial3.readBytes(read_communication_buffer, Serial3.available());
@@ -368,7 +411,10 @@ char get_all_motor_pos()
         read_communication_length = Serial3.readBytes(read_communication_buffer, Serial3.available());
         parseSerialMsg(id);
       }
-      MotorsReadCode = MotorsReadCode + getMotorPosMsg(id)*2;
+      if (angle_ctrl_client[id].obs_angular_displacement_.IsFresh()){
+        motor_2_pos = getMotorPosMsg(id);
+        MotorsReadCode = MotorsReadCode + 2;
+      }   
   }
  }
  return MotorsReadCode;
@@ -381,18 +427,13 @@ void parseSerialMsg(int id){
     while(com[id].PeekPacket(&rx_data,&rx_length)){
       // Share that packet with all client objects
       angle_ctrl_client[id].ReadMsg(com[id],rx_data,rx_length);
+//      angle_ctrl_client[id].ReadMsg(rx_data,rx_length);
       // Once we’re done with the message packet, drop it
       com[id].DropPacket();
     }
 }
-
-bool getMotorPosMsg(int id){
-  if(angle_ctrl_client[id].obs_angular_displacement_.IsFresh()) {
-        motor_1_pos = angle_ctrl_client[id].obs_angular_displacement_.get_reply();
+// Only use this if you know the message is fresh. Ex.  if (angle_ctrl_client[id].obs_angular_displacement_.IsFresh()){...}
+float getMotorPosMsg(int id){
         state_data += "m" + String(id) +"_got";
-        return 1; //successful get
-      }
-      else{
-        return 0;
-      }
+        return angle_ctrl_client[id].obs_angular_displacement_.get_reply();
 }
