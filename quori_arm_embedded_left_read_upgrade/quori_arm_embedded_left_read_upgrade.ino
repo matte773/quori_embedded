@@ -13,7 +13,7 @@
 #include "src/MLX90363/MLX90363.h"
 #include <SPI.h>
 
-#define LOOPHZ   100.0
+#define LOOPHZ   50.0
 #define LOOPTIME 1000000/LOOPHZ // in microseconds
 #define POS 0
 #define VEL 1
