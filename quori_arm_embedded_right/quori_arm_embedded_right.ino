@@ -227,7 +227,7 @@ void loop(){
 // Prepares and sends ROS rotopic messages
 void ros_telemetry(){
 
-  lp3_msg.x = -joint_1_pos_meas;//Note the negative sign compensates for a frame preference we specified
+  lp3_msg.x = joint_1_pos_meas;//Note the negative sign compensates for a frame preference we specified
   lp3_msg.y = joint_2_pos_meas;
   lp3_msg.z = 0;
   pub_posright.publish(&lp3_msg);
