@@ -179,7 +179,7 @@ void setup()
   update_states();
 
   //setting zero position.
-  angleSensor1.SetZeroPosition(map(-1.293, -PI, PI, -8192, 8191));
+  angleSensor1.SetZeroPosition(map(1.831, -PI, PI, -8192, 8191));//to reverse arm direction -1.293
   angleSensor2.SetZeroPosition(map(1.161, -PI, PI, -8192, 8191));
 
  //set_motor_gains(1, 10 , 100, 0);
