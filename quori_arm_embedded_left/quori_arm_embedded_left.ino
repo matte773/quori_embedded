@@ -82,6 +82,7 @@ float joint_1_pos_meas,joint_2_pos_meas; //measured input value 0 to 1
 float motor_1_pos = 0; // radians
 float  motor_2_pos = 0;
 float motorReadCode = 0; // 1 = only motor 1, 2= only motor 2, 3= motor 1 and 2, 0= no motor read
+char jointReadCode = 0; //// 1 = only joint 1, 2= only joint 2, 3= joint 1 and 2, 0= no joint read
 float motor_1_pos_cmd = 0;
 float motor_2_pos_cmd = 0;
 float motor_1_pos_offset = 0;
@@ -180,7 +181,7 @@ void setup()
 
   //setting zero position.
   angleSensor1.SetZeroPosition(map(0.342, -PI, PI, -8192, 8191));
-  angleSensor2.SetZeroPosition(map(-0.474, -PI, PI, -8192, 8191));
+  angleSensor2.SetZeroPosition(map(-0.533, -PI, PI, -8192, 8191));
 
  //set_motor_gains(1, 10 , 100, 0);
   
@@ -229,7 +230,7 @@ void ros_telemetry(){
 
   lp3_msg.x = joint_1_pos_meas;
   lp3_msg.y = joint_2_pos_meas;
-  lp3_msg.z = 0;
+  lp3_msg.z = jointReadCode;
   pub_posLeft.publish(&lp3_msg);
   
   lm3_msg.x = motor_1_pos;
@@ -247,10 +248,23 @@ void ros_telemetry(){
 
 // Read and adjust the position of the arm joints.
 void update_states(){
-  angleSensor1.SendGET3();
-  angleSensor2.SendGET3();
-  joint_1_pos_meas =(int)angleSensor1.ReadAngle();
-  joint_2_pos_meas =(int)angleSensor2.ReadAngle();
+  jointReadCode = 0;
+  bool  checksumError = angleSensor1.SendGET3();
+  if (checksumError){
+    joint_1_pos_meas =joint_1_pos_meas;
+  }
+  else{
+    joint_1_pos_meas =(int)angleSensor1.ReadAngle();
+    jointReadCode = jointReadCode+1;
+  }
+  checksumError = angleSensor2.SendGET3();
+  if (checksumError){
+    joint_2_pos_meas =joint_2_pos_meas;
+  }
+  else{
+    joint_2_pos_meas =(int)angleSensor2.ReadAngle();
+    jointReadCode = jointReadCode+2;
+  }
 
   joint_1_pos_meas = joint_1_pos_meas*TICKS2RADIANS;
   joint_2_pos_meas = joint_2_pos_meas*TICKS2RADIANS;

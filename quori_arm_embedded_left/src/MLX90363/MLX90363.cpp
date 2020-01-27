@@ -15,6 +15,8 @@
 #define MELEXIS_Reboot 0x2F
 #define MELEXIS_Standby 0x31
 
+SPISettings settingsMLX(1000000, MSBFIRST, SPI_MODE1); 
+
 const char cba_256_TAB [] = {0x00, 0x2f, 0x5e, 0x71, 0xbc, 0x93, 0xe2, 0xcd,
 							0x57, 0x78, 0x09, 0x26, 0xeb, 0xc4, 0xb5, 0x9a,
 							0xae, 0x81, 0xf0, 0xdf, 0x12, 0x3d, 0x4c, 0x63,
@@ -50,13 +52,11 @@ const char cba_256_TAB [] = {0x00, 0x2f, 0x5e, 0x71, 0xbc, 0x93, 0xe2, 0xcd,
 
 MLX90363::MLX90363(uint8_t sspin) : slave_select(sspin)
 {
-    SPI.begin();
-    SPI.setBitOrder(MSBFIRST);
-    SPI.setClockDivider(SPI_CLOCK_DIV4);
-    SPI.setDataMode(SPI_MODE1);
+	SPI.begin(); 
     pinMode (slave_select, OUTPUT);
     digitalWrite(slave_select,HIGH);
     zero_position = 0;
+
 }
 
 void MLX90363::InitializeSPI(int mosi, int miso, int sck)
@@ -68,9 +68,6 @@ void MLX90363::InitializeSPI(int mosi, int miso, int sck)
     SPI.setSCK(sck);    //13
     SPI.setMISO(miso);  //12
     SPI.begin();
-    SPI.setBitOrder(MSBFIRST);
-    SPI.setClockDivider(SPI_CLOCK_DIV8);
-    SPI.setDataMode(SPI_MODE1);
 }
 
 void MLX90363::SetZeroPosition()
@@ -106,12 +103,14 @@ bool MLX90363::SendNOP()
 bool MLX90363::SendSPI()
 {
     Checksum(send_buffer);
+	SPI.beginTransaction(settingsMLX);
     digitalWrite(slave_select,LOW);
     delayMicroseconds(1);
     for (i=0; i<8; i++)
       receive_buffer[i] = SPI.transfer(send_buffer[i]);
     delayMicroseconds(1);
     digitalWrite(slave_select,HIGH);
+	SPI.endTransaction();
     return Checksum(receive_buffer);
 }
 
