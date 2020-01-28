@@ -183,6 +183,8 @@ void setup()
   angleSensor1.SetZeroPosition(map(1.831, -PI, PI, -8192, 8191));//to reverse arm direction -1.293
   angleSensor2.SetZeroPosition(map(1.161, -PI, PI, -8192, 8191));
 
+
+
  //set_motor_gains(1, 10 , 100, 0);
   
   Serial.flush();
@@ -248,6 +250,7 @@ void ros_telemetry(){
 
 // Read and adjust the position of the arm joints.
 void update_states(){
+  jointReadCode = 0;
   bool  checksumError = angleSensor1.SendGET3();
   if (checksumError){
     joint_1_pos_meas =joint_1_pos_meas;

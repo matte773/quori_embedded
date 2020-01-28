@@ -70,13 +70,6 @@ void MLX90363::InitializeSPI(int mosi, int miso, int sck)
     SPI.begin();
 }
 
-void MLX90363::SetZeroPosition()
-{
-    SendGET3();
-    value = (uint16_t)(receive_buffer[0] | ((receive_buffer[1]&0x3F)<<8));
-    zero_position = value;
-}
-
 void MLX90363::SetZeroPosition(int16_t offset)
 {
     zero_position = offset;
@@ -88,6 +81,7 @@ bool MLX90363::SendGET3()
     send_buffer[2] = 0xFF;
     send_buffer[3] = 0xFF;
 	  send_buffer[6] = 0x00 | MELEXIS_GET3;   // alpha-diganostic
+	send_buffer[7] = 0x08;
     return SendSPI();
 }
 
@@ -97,6 +91,7 @@ bool MLX90363::SendNOP()
     send_buffer[2] = 0xFF;
     send_buffer[3] = 0xFF;
     send_buffer[6] = 0xC0 | MELEXIS_NOP;
+	send_buffer[7] = 0xAB;
     return SendSPI();
 }
 
