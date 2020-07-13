@@ -118,7 +118,7 @@ ros::Publisher pub_State("/quori/waist/state", &state_msg);
 /* ROS callback functions     */
 /******************************/
 
-void CallbackLeftArmPos (const geometry_msgs::Vector3& cmd_msg){
+void CallbackPoscmd (const geometry_msgs::Vector3& cmd_msg){
   // directly send value to motors
   
   if (cmd_msg.z <= -1){
@@ -144,15 +144,15 @@ void CallbackLeftArmPos (const geometry_msgs::Vector3& cmd_msg){
 }
 
 
-void CallbackLeftArmSetPID1 (const geometry_msgs::Vector3& cmd_msg){
+void CallbackLeftwaistSetPID1 (const geometry_msgs::Vector3& cmd_msg){
     pos_MT_pid.set_Kp(cmd_msg.x);
     pos_MT_pid.set_Ki(cmd_msg.y);
     pos_MT_pid.set_Kd(cmd_msg.z);
 
 }
 
-ros::Subscriber<geometry_msgs::Vector3> sub_leftarmPID1("/quori/waist/set_pid1", CallbackLeftArmSetPID1); //subscriber  
-ros::Subscriber<geometry_msgs::Vector3> sub_leftarmposdir("/quori/waist/cmd_pos_dir", CallbackLeftArmPos); //subscriber 
+ros::Subscriber<geometry_msgs::Vector3> sub_leftwaistPID1("/quori/waist/set_pid1", CallbackLeftwaistSetPID1); //subscriber  
+ros::Subscriber<geometry_msgs::Vector3> sub_leftwaistposdir("/quori/waist/cmd_pos_dir", CallbackPoscmd); //subscriber 
 
 
 /***************************************************/
@@ -168,8 +168,8 @@ void setup()
   nh.advertise(pub_MLeft);
   nh.advertise(pub_State);
 
-  nh.subscribe(sub_leftarmposdir);
-  nh.subscribe(sub_leftarmPID1);
+  nh.subscribe(sub_leftwaistposdir);
+  nh.subscribe(sub_leftwaistPID1);
 
   // Start SPI (MOSI=11, MISO=12, SCK=13)
   MLX90363::InitializeSPI(11,12,13);
@@ -181,8 +181,8 @@ void setup()
   delay(500);
   //update sensor position Zero
   update_states();
-  angle_sensor_waist.SetZeroPosition(map(0.241, -PI, PI, -8192, 8191));//TODO: Set this for each robot
-  angle_sensor_MT.SetZeroPosition(map(-2.216, -PI, PI, -8192, 8191));//TODO: Set this for each robot ...-1.91384649277
+  angle_sensor_waist.SetZeroPosition(map(-2.011, -PI, PI, -8192, 8191));//TODO: Set this for each robot
+  angle_sensor_MT.SetZeroPosition(map(1.655, -PI, PI, -8192, 8191));//TODO: Set this for each robot ...-1.91384649277
 
   pos_MT_pid.set_Kp(1.0);
   pos_MT_pid.set_Ki(0.05);
@@ -270,7 +270,7 @@ void ros_telemetry(){
   }
 
 
-// Read and adjust the position of the arm joints.
+// Read and adjust the position of the waist joints.
 void update_states(){
   //
   angle_sensor_waist.SendGET3();
@@ -285,7 +285,7 @@ void update_states(){
    //
 }
 
-//commands arms to move. Currently position and velocity modes are possible, but we only plan to use position.
+//commands waists to move. Currently position and velocity modes are possible, but we only plan to use position.
 void move_motor(){
     set_motor_control(); // uncomment this and replace delete other code
     
@@ -324,7 +324,7 @@ void update_motor_goal(float goal_pos, float goal_vel){
 }
 
 /***************************/
-/*   IQ-Motor Functions    */
+/*   Motor Functions    */
 /***************************/
 
 // Creates and sends message to motors requesting a coast cmd.
