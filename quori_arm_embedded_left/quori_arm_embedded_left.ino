@@ -180,8 +180,8 @@ void setup()
   update_states();
 
   //setting zero position.
-  angleSensor1.SetZeroPosition(map(0.342, -PI, PI, -8192, 8191));
-  angleSensor2.SetZeroPosition(map(-0.533, -PI, PI, -8192, 8191));
+  angleSensor1.SetZeroPosition(map(0.0, -PI, PI, -8192, 8191));
+  angleSensor2.SetZeroPosition(map(0.0, -PI, PI, -8192, 8191));
 
  //set_motor_gains(1, 10 , 100, 0);
   
