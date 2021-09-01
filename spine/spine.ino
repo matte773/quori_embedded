@@ -45,6 +45,7 @@ struct GlobalState
 {
   float positions[1];
   float measured[1];
+  float waist[1];
   unsigned long measurement_time;
 };
 
@@ -74,8 +75,8 @@ size_t processMessage(const std::uint8_t *const message, const size_t max_length
       if (max_length < sizeof (SetPositions)) return 0;
       const SetPositions *const set_positions = reinterpret_cast<const SetPositions *>(message);
 
-      const float p = set_positions->positions[0];
-      state->positions[0] = clamp(p, JOINT_LOW_LIMIT, JOINT_UPP_LIMIT);
+      const float p = set_positions->positions[0] * G_RATIO;
+      state->positions[0] = clamp(p, MOTOR_LOW_LIMIT, MOTOR_UPP_LIMIT);
 
       SetPositionsRes set_positions_res;
       set_positions_res.values[0] = 0;
@@ -97,8 +98,7 @@ size_t processMessage(const std::uint8_t *const message, const size_t max_length
       if (max_length < sizeof (GetStates)) return 0;
 
       States states;
-      angle_sensor_waist.SendGET3();
-      states.positions[0] = ticksToAngle(-angle_sensor_waist.ReadAngle());
+      states.positions[0] = state->waist[0];
 
       states.measured[0] = state->measured[0];
       states.positions[1] = max_length;
@@ -146,11 +146,15 @@ void setup()
   Serial.begin(115200);
   Serial1.begin(115200);
 
-  angle_sensor_waist.SetZeroPosition(map(0.258475, -PI, PI, -8192, 8191));
-  angle_sensor_mt.SetZeroPosition(map(0.1988125, -PI, PI, -8192, 8191));
+  // 0.258475
+  angle_sensor_waist.SetZeroPosition(map(0.18, -PI, PI, -8192, 8191));
+  
+  // 0.1988125
+  angle_sensor_mt.SetZeroPosition(map(0.9, -PI, PI, -8192, 8191));
   
   state.measured[0] = 0;
   state.positions[0] = 0;
+  state.waist[0] = 0;
   state.measurement_time = millis();
 
   delay(500);
@@ -166,6 +170,82 @@ void setup()
   pos_mt_pid.set_feed_forward(0.0);
 
   Serial.flush();
+
+  const float clamped = clamp(0.0, JOINT_LOW_LIMIT, JOINT_UPP_LIMIT);
+  pos_mt_pid.set_reference(clamped);
+  pos_mt_pid.set_reference_dot(0.01);
+
+  // Prime the filter
+  for (unsigned i = 0; i < 100; ++i)
+  {
+    angle_sensor_mt.SendGET3();
+    state.measured[0] = mt_filter_position.sample(ticksToAngle(-angle_sensor_mt.ReadAngle()));
+    delay(2);
+  }
+  state.measurement_time = millis();
+
+  
+
+  /*for (;;)
+  {
+    angle_sensor_waist.SendGET3();
+    const float angle = ticksToAngle(-angle_sensor_waist.ReadAngle());
+
+    angle_sensor_mt.SendGET3();
+    state.measured[0] = mt_filter_position.sample(ticksToAngle(-angle_sensor_mt.ReadAngle()));
+    const unsigned long now = millis();
+
+    state.measurement_time = now;
+
+    Serial.printf("measured %d %d %d\n",
+      (int)(angle * 100),
+      (int)(MOTOR_UPP_LIMIT * 100),
+      (int)(MOTOR_LOW_LIMIT * 100)
+    );
+
+    int serial_mt = 0;
+
+
+    if (state.measured[0] >= MOTOR_UPP_LIMIT || state.measured[0] <= MOTOR_LOW_LIMIT)
+    {
+      if (state.measured[0] >= MOTOR_UPP_LIMIT)
+      {
+        float cmd = -0.1;
+        set_volts(&cmd, &serial_mt);
+      }
+      else
+      {
+        float cmd = 0.1;
+        set_volts(&cmd, &serial_mt);
+      }
+
+      delay(10);
+      coast();
+      continue;
+    }
+
+    if (angle >= JOINT_UPP_LIMIT || angle <= JOINT_LOW_LIMIT)
+    {
+      // Serial.println("Joint limit");
+      coast();
+      delay(10);
+      continue;
+    }
+
+
+
+    const unsigned long delta_ms = now - last_pid_update;
+    const float delta_secs = static_cast<float>(now - last_pid_update) / 1000.0f;
+    last_pid_update = now;
+
+    
+
+    float cmd = pos_mt_pid.PidCompute(state.measured[0], delta_secs, 1.0 / delta_secs);
+
+
+    set_volts(&cmd, &serial_mt);
+    delay(10);
+  }*/
 }
 
 uint8_t incoming_buffer[256];
@@ -177,6 +257,9 @@ void loop()
   const unsigned long now = millis();
   if (inited) ++i;
 
+  angle_sensor_waist.SendGET3();
+  state.waist[0] = ticksToAngle(-angle_sensor_waist.ReadAngle());
+
   angle_sensor_mt.SendGET3();
   state.measured[0] = mt_filter_position.sample(ticksToAngle(-angle_sensor_mt.ReadAngle()));
   state.measurement_time = millis();
@@ -185,22 +268,31 @@ void loop()
   if (now - last_command_time > COMMAND_TIMEOUT)
   {
     coast();
-    if (i % 1000 == 1) Log::create("Coasting... %u", 1).write(&Serial);
+    // if (i % 100 == 1) Log::create("Coasting... %u", 1).write(&Serial);
   }
   else
   {
-    const float clamped = clamp(state.positions[0], JOINT_LOW_LIMIT, JOINT_UPP_LIMIT);
-    pos_mt_pid.set_reference(clamped);
-    pos_mt_pid.set_reference_dot(0.1);
+    if (state.measured[0] >= MOTOR_UPP_LIMIT || state.measured[0] <= MOTOR_LOW_LIMIT || state.waist[0] >= JOINT_UPP_LIMIT || state.waist[0] <= JOINT_LOW_LIMIT)
+    {
+      coast();
+    }
+    else
+    {
+      const float clamped = clamp(state.positions[0], MOTOR_LOW_LIMIT, MOTOR_UPP_LIMIT);
+      pos_mt_pid.set_reference(clamped);
+      pos_mt_pid.set_reference_dot(1.0);
 
-    const float last_pid_update_secs = static_cast<float>(last_pid_update) / 1000.0f;
-    float cmd = pos_mt_pid.PidCompute(state.measured[0], last_pid_update_secs, 1.0 / last_pid_update_secs);
-    last_pid_update = millis();
-    int serial_mt = 0;
-    set_volts(&cmd, &serial_mt);
+      const unsigned long now = millis();
+      const unsigned long delta_ms = now - last_pid_update;
+      const float delta_secs = static_cast<float>(delta_ms) / 1000.0f;
+      last_pid_update = now;
+      float cmd = pos_mt_pid.PidCompute(state.measured[0], delta_secs, 1.0 / delta_secs);
+      // if (i % 100 == 1) Log::create("%d %d %d", (int)(cmd * 10), (int)(state.positions[0] * 10), (int)(clamped * 10)).write(&Serial);
 
-    if (i % 1000 == 1) Log::create("Set volts %u %u", (int)(cmd * 100), (int)(state.positions[0] * 100)).write(&Serial);
+      int serial_mt = 0;
+      set_volts(&cmd, &serial_mt);
 
+    }
   }
 
   while (Serial.available() && incoming_buffer_length < sizeof(incoming_buffer))
