@@ -4,7 +4,9 @@ const static float QUORI_CONFIG_ZERO_POSITION_X = 1.7641f;
 const static float QUORI_CONFIG_ZERO_POSITION_Y = -5.0388f;
 
 // Comment this for the right arm
-// #define QUORI_CONFIG_ARM_LEFT
+#define QUORI_CONFIG_ARM_LEFT
+// Comment this for the left arm
+// #define QUORI_CONFIG_ARM_RIGHT
 
 
 

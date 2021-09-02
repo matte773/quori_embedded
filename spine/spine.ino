@@ -1,3 +1,9 @@
+// Per-robot configuration:
+
+const static float QUORI_CONFIG_ZERO_POSITION_WAIST = 0.18f;
+const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = 0.9f;
+
+
 #define USE_USBCON
 
 #include <Arduino.h>
@@ -146,11 +152,8 @@ void setup()
   Serial.begin(115200);
   Serial1.begin(115200);
 
-  // 0.258475
-  angle_sensor_waist.SetZeroPosition(map(0.18, -PI, PI, -8192, 8191));
-  
-  // 0.1988125
-  angle_sensor_mt.SetZeroPosition(map(0.9, -PI, PI, -8192, 8191));
+  angle_sensor_waist.SetZeroPosition(map(QUORI_CONFIG_ZERO_POSITION_WAIST, -PI, PI, -8192, 8191));
+  angle_sensor_mt.SetZeroPosition(map(QUORI_CONFIG_ZERO_POSITION_MOTOR, -PI, PI, -8192, 8191));
   
   state.measured[0] = 0;
   state.positions[0] = 0;
@@ -183,69 +186,6 @@ void setup()
     delay(2);
   }
   state.measurement_time = millis();
-
-  
-
-  /*for (;;)
-  {
-    angle_sensor_waist.SendGET3();
-    const float angle = ticksToAngle(-angle_sensor_waist.ReadAngle());
-
-    angle_sensor_mt.SendGET3();
-    state.measured[0] = mt_filter_position.sample(ticksToAngle(-angle_sensor_mt.ReadAngle()));
-    const unsigned long now = millis();
-
-    state.measurement_time = now;
-
-    Serial.printf("measured %d %d %d\n",
-      (int)(angle * 100),
-      (int)(MOTOR_UPP_LIMIT * 100),
-      (int)(MOTOR_LOW_LIMIT * 100)
-    );
-
-    int serial_mt = 0;
-
-
-    if (state.measured[0] >= MOTOR_UPP_LIMIT || state.measured[0] <= MOTOR_LOW_LIMIT)
-    {
-      if (state.measured[0] >= MOTOR_UPP_LIMIT)
-      {
-        float cmd = -0.1;
-        set_volts(&cmd, &serial_mt);
-      }
-      else
-      {
-        float cmd = 0.1;
-        set_volts(&cmd, &serial_mt);
-      }
-
-      delay(10);
-      coast();
-      continue;
-    }
-
-    if (angle >= JOINT_UPP_LIMIT || angle <= JOINT_LOW_LIMIT)
-    {
-      // Serial.println("Joint limit");
-      coast();
-      delay(10);
-      continue;
-    }
-
-
-
-    const unsigned long delta_ms = now - last_pid_update;
-    const float delta_secs = static_cast<float>(now - last_pid_update) / 1000.0f;
-    last_pid_update = now;
-
-    
-
-    float cmd = pos_mt_pid.PidCompute(state.measured[0], delta_secs, 1.0 / delta_secs);
-
-
-    set_volts(&cmd, &serial_mt);
-    delay(10);
-  }*/
 }
 
 uint8_t incoming_buffer[256];
@@ -268,7 +208,6 @@ void loop()
   if (now - last_command_time > COMMAND_TIMEOUT)
   {
     coast();
-    // if (i % 100 == 1) Log::create("Coasting... %u", 1).write(&Serial);
   }
   else
   {
@@ -287,7 +226,6 @@ void loop()
       const float delta_secs = static_cast<float>(delta_ms) / 1000.0f;
       last_pid_update = now;
       float cmd = pos_mt_pid.PidCompute(state.measured[0], delta_secs, 1.0 / delta_secs);
-      // if (i % 100 == 1) Log::create("%d %d %d", (int)(cmd * 10), (int)(state.positions[0] * 10), (int)(clamped * 10)).write(&Serial);
 
       int serial_mt = 0;
       set_volts(&cmd, &serial_mt);
