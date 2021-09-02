@@ -1,10 +1,10 @@
 // Per-robot configuration:
 
-const static float QUORI_CONFIG_ZERO_POSITION_X = -1.01f;
-const static float QUORI_CONFIG_ZERO_POSITION_Y = 2.06f;
+const static float QUORI_CONFIG_ZERO_POSITION_X = 1.7641f;
+const static float QUORI_CONFIG_ZERO_POSITION_Y = -5.0388f;
 
 // Comment this for the right arm
-#define QUORI_CONFIG_ARM_LEFT
+// #define QUORI_CONFIG_ARM_LEFT
 
 
 
@@ -340,7 +340,7 @@ size_t iter = 0;
 
 void loop()
 {
-  const unsigned long now = millis();
+  const unsigned long now = millis() + COMMAND_TIMEOUT;
 
   if (now - last_command_time > COMMAND_TIMEOUT)
   {
@@ -366,9 +366,15 @@ void loop()
 
     // low pass filter
     const float filtered_y = position_filters[1].update(raw_y);
-
-    actuators[0].setPosition(filtered_x);
-    actuators[1].setPosition(filtered_y);
+    if (iter > 100)
+    {
+      actuators[0].setPosition(filtered_x);
+      actuators[1].setPosition(filtered_y);
+    }
+    else
+    {
+      iter++;
+    }
   }
 
   while (Serial.available() && incoming_buffer_length < sizeof(incoming_buffer))
