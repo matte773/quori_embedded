@@ -1,4 +1,6 @@
-# quori_arms_embedded
+# quori_embedded
+
+This repository contains the microcontroller code for Quori's arms and spine. Note that improper configuration **can cause physical damage to Quori** that may require repair. Please be careful.
 
 ## Installation
 
@@ -49,3 +51,7 @@ roslaunch quori_controller quori_control_holo.launch
 ```
 
 Select the quori_controller in the GUI. You should then be able to move the joints.
+
+## License
+
+This software is released under the terms of the MIT License. As stated in the license, the copyright holders are not liable for any damages which may arise from the use of this software. 
