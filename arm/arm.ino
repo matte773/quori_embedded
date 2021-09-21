@@ -1,12 +1,15 @@
 // Per-robot configuration:
 
-const static float QUORI_CONFIG_ZERO_POSITION_X = 1.7641f;
-const static float QUORI_CONFIG_ZERO_POSITION_Y = -5.0388f;
+// -1.8f + 0.69f
+// -2.9388f - 0.77f
+
+const static float QUORI_CONFIG_ZERO_POSITION_X = 1.93;
+const static float QUORI_CONFIG_ZERO_POSITION_Y = 1.10;
 
 // Comment this for the right arm
-#define QUORI_CONFIG_ARM_LEFT
+// #define QUORI_CONFIG_ARM_LEFT
 // Comment this for the left arm
-// #define QUORI_CONFIG_ARM_RIGHT
+#define QUORI_CONFIG_ARM_RIGHT
 
 
 
@@ -51,6 +54,10 @@ inline T clamp(T value, T min, T max)
   if (value > max) return max;
   return value;
 }
+
+bool inited = false;
+size_t i = 0;
+
 
 
 class Actuator
@@ -129,7 +136,11 @@ public:
       return prev_measured_;
     }
 
-    const float next = angle_sensor_->ReadAngle() / TICKS_PER_REV * 2 * M_PI;
+    prev_ticks_ = angle_sensor_->ReadAngle();
+
+    const float next = prev_ticks_ / TICKS_PER_REV * 2 * M_PI;
+
+
     
     prev_measured_ = measured_filter_p1_.update(next);
     // prev_measured_ = measured_filter_p2_.update(prev_measured_);
@@ -147,6 +158,9 @@ public:
     angle_control_client_.ctrl_coast_.set(comm_);
     write_();
   }
+
+  int64_t prev_ticks_;
+
 
 private:
   void write_()
@@ -214,8 +228,8 @@ const static float G_RATIO = 12.18f;
 
 
 Filter<float> position_filters[2] = {
-  Filter<float>(0.175f),
-  Filter<float>(0.175f)
+  Filter<float>(0.01f),
+  Filter<float>(0.01f)
 };
 
 struct GlobalState
@@ -226,7 +240,6 @@ struct GlobalState
   unsigned long measurement_time;
 };
 
-bool inited = false;
 size_t processMessage(const std::uint8_t *const message, const size_t max_length, struct GlobalState *const state)
 {
   if (max_length < 1) return 0;
@@ -247,8 +260,8 @@ size_t processMessage(const std::uint8_t *const message, const size_t max_length
 
       SetPositionsRes set_positions_res;
 
-      set_positions_res.values[0] = state->positions[0];
-      set_positions_res.values[1] = state->positions[1];
+      set_positions_res.values[0] = actuators[0].prev_ticks_;
+      set_positions_res.values[1] = actuators[1].prev_ticks_;
       set_positions_res.values[2] = set_positions->positions[0];
       set_positions_res.values[3] = set_positions->positions[1];
       Serial.write(reinterpret_cast<const uint8_t *>(&set_positions_res), sizeof(set_positions_res));
@@ -340,6 +353,7 @@ size_t incoming_buffer_length = 0;
 
 size_t iter = 0;
 
+
 void loop()
 {
   const unsigned long now = millis() + COMMAND_TIMEOUT;
@@ -354,6 +368,7 @@ void loop()
     state.measured[0] = actuators[0].getMeasured();
     state.measured[1] = actuators[1].getMeasured();
     state.measurement_time = now;
+
     
     // state.positions are user commands in radians
     const float diff_x = state.positions[0] - state.measured[0];
@@ -368,6 +383,7 @@ void loop()
 
     // low pass filter
     const float filtered_y = position_filters[1].update(raw_y);
+    
     if (iter > 100)
     {
       actuators[0].setPosition(filtered_x);

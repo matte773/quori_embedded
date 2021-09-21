@@ -56,6 +56,8 @@ MLX90363::MLX90363(uint8_t sspin) : slave_select(sspin)
     pinMode (slave_select, OUTPUT);
     digitalWrite(slave_select,HIGH);
     zero_position = 0;
+    summed_value = 0;
+    raw_value = 0;
 
 }
 
@@ -73,6 +75,7 @@ void MLX90363::InitializeSPI(int mosi, int miso, int sck)
 void MLX90363::SetZeroPosition(int16_t offset)
 {
     zero_position = offset;
+    summed_value = -zero_position;
 }
 
 bool MLX90363::SendGET3()
@@ -119,15 +122,31 @@ bool MLX90363::Checksum(uint8_t *message)
     return !(message[7]==crc);
 }
 
-int16_t MLX90363::ReadAngle()
+int64_t MLX90363::ReadAngle()
 {
-    value = (uint16_t)(receive_buffer[0] | ((receive_buffer[1]&0x3F)<<8));
-    value = value - zero_position;
-    if (value >= 8191)
-      value -= 16384;
-    if (value <= -8192)
-      value += 16384;
-    return value;
+    const static int16_t OVERFLOW_EPSILON = 100;
+    // Previous value
+    const int16_t prev_value = raw_value;
+
+    // A 14-bit value is read from the sensor.
+    raw_value = (int16_t)(
+        receive_buffer[0] | ((receive_buffer[1]&0x3F)<<8)
+    ); 
+
+    if (prev_value > 0x4000 - OVERFLOW_EPSILON && raw_value < OVERFLOW_EPSILON)
+    {
+        summed_value += (0x4000 - prev_value) + raw_value;
+    }
+    else if (prev_value < OVERFLOW_EPSILON && raw_value > 0x4000 - OVERFLOW_EPSILON)
+    {
+        summed_value += prev_value + (0x4000 - raw_value);
+    }
+    else
+    {
+        summed_value += raw_value - prev_value;
+    }
+
+    return summed_value;
 }
 
 void MLX90363::PrintReceiveBuffer()
