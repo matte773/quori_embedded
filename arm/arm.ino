@@ -37,6 +37,7 @@ const static float QUORI_CONFIG_ZERO_POSITION_Y = 1.10;
 #include "common/libiqinetics/src/generic_interface.cpp"
 #include "common/libiqinetics/src/packet_finder.c"
 #include "common/quori/message.cpp"
+#include "common/quori/Result.hpp"
 
 #include <cmath>
 
@@ -101,7 +102,7 @@ public:
     return true;
   }
 
-  float getPosition()
+  quori::Result<float> getPosition()
   {
     angle_control_client_.obs_angular_displacement_.get(comm_);
     write_();
@@ -116,7 +117,7 @@ public:
       delay(1);
     }
 
-    if (!angle_control_client_.obs_angular_displacement_.IsFresh()) return prev_position_;
+    if (!angle_control_client_.obs_angular_displacement_.IsFresh()) return quori::Result<float>();
     return prev_position_ = angle_control_client_.obs_angular_displacement_.get_reply();
   }
 
@@ -125,7 +126,7 @@ public:
     return prev_position_;
   }
 
-  float getMeasured()
+  quori::Result<float> getMeasured()
   {
     // This function returns true on ERROR. Sigh.
     if (angle_sensor_->SendGET3())
@@ -133,15 +134,18 @@ public:
       Log log;
       snprintf(log.message, sizeof (log.message), "chksum error");
       Serial.write(reinterpret_cast<const uint8_t *>(&log), sizeof(log));
-      return prev_measured_;
+      return quori::Result<float>();
     }
 
     prev_ticks_ = angle_sensor_->ReadAngle();
 
     const float next = prev_ticks_ / TICKS_PER_REV * 2 * M_PI;
 
+    if (next < limit_min_ || next > limit_max_)
+    {
+      return quori::Result<float>();
+    }
 
-    
     prev_measured_ = measured_filter_p1_.update(next);
     // prev_measured_ = measured_filter_p2_.update(prev_measured_);
 
@@ -228,8 +232,8 @@ const static float G_RATIO = 12.18f;
 
 
 Filter<float> position_filters[2] = {
-  Filter<float>(0.01f),
-  Filter<float>(0.01f)
+  Filter<float>(0.175f),
+  Filter<float>(0.175f)
 };
 
 struct GlobalState
@@ -365,33 +369,48 @@ void loop()
   else
   {
     // Angle sensor readings in radians
-    state.measured[0] = actuators[0].getMeasured();
-    state.measured[1] = actuators[1].getMeasured();
-    state.measurement_time = now;
 
-    
-    // state.positions are user commands in radians
-    const float diff_x = state.positions[0] - state.measured[0];
-    const float diff_y = state.positions[1] - state.measured[1];
+    using namespace quori;
 
-    const float raw_x = G_RATIO * (diff_x + diff_y) + actuators[0].getPosition();
-    
-    // low pass filter
-    const float filtered_x = position_filters[0].update(raw_x);
+    Result<float> measured0 = actuators[0].getMeasured();
+    Result<float> measured1 = actuators[1].getMeasured();
 
-    const float raw_y = G_RATIO * (diff_x - diff_y) + actuators[1].getPosition();
 
-    // low pass filter
-    const float filtered_y = position_filters[1].update(raw_y);
-    
-    if (iter > 100)
+    if (measured0.isOk()) state.measured[0] = measured0.ok();
+    if (measured1.isOk()) state.measured[1] = measured1.ok();
+
+    Result<float> position0 = actuators[0].getPosition();
+    Result<float> position1 = actuators[1].getPosition();
+
+    const bool success = measured0.isOk() && measured1.isOk() && position0.isOk() && position1.isOk();
+
+    if (success)
     {
-      actuators[0].setPosition(filtered_x);
-      actuators[1].setPosition(filtered_y);
-    }
-    else
-    {
-      iter++;
+      state.measurement_time = now;
+
+      // state.positions are user commands in radians
+      const float diff_x = state.positions[0] - state.measured[0];
+      const float diff_y = state.positions[1] - state.measured[1];
+
+      const float raw_x = G_RATIO * (diff_x + diff_y) + position0.ok();
+      
+      // low pass filter
+      const float filtered_x = position_filters[0].update(raw_x);
+
+      const float raw_y = G_RATIO * (diff_x - diff_y) + position1.ok();
+
+      // low pass filter
+      const float filtered_y = position_filters[1].update(raw_y);
+      
+      if (iter > 100)
+      {
+        actuators[0].setPosition(filtered_x);
+        actuators[1].setPosition(filtered_y);
+      }
+      else
+      {
+        iter++;
+      }
     }
   }
 
@@ -409,5 +428,10 @@ void loop()
     memmove(incoming_buffer, incoming_buffer + read_count, incoming_buffer_length);
   }
 
-  delay(5);
+  const unsigned long end = millis() + COMMAND_TIMEOUT;
+
+  const unsigned long duration = end - now;
+
+
+  delay(10 - duration);
 }
