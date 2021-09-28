@@ -2,14 +2,17 @@
 
 // -1.8f + 0.69f
 // -2.9388f - 0.77f
-
-const static float QUORI_CONFIG_ZERO_POSITION_X = 1.93;
-const static float QUORI_CONFIG_ZERO_POSITION_Y = 1.10;
+//Right Zero Positions for this Robot
+//const static float QUORI_CONFIG_ZERO_POSITION_X = 0.5737;
+//const static float QUORI_CONFIG_ZERO_POSITION_Y = 5.5126;
+//Left Zero Positions for this Robot
+const static float QUORI_CONFIG_ZERO_POSITION_X = 0.9434;
+const static float QUORI_CONFIG_ZERO_POSITION_Y = 2.5247;
 
 // Comment this for the right arm
-// #define QUORI_CONFIG_ARM_LEFT
+ #define QUORI_CONFIG_ARM_LEFT
 // Comment this for the left arm
-#define QUORI_CONFIG_ARM_RIGHT
+//#define QUORI_CONFIG_ARM_RIGHT
 
 
 
@@ -46,6 +49,7 @@ const static float TICKS2RADIANS = (2.0 * PI / 16383.0);
 const static float TICKS_PER_REV = 16383.0;
 const static size_t MOTOR_BAUD_RATE = 38400;
 const static unsigned long READ_TIMEOUT = 5;
+const unsigned char             delayms = 10;// 10 is 100Hz goal, 20 is 50Hz goal
 
 template<typename T>
 inline T clamp(T value, T min, T max)
@@ -132,8 +136,12 @@ public:
     if (angle_sensor_->SendGET3())
     {
       Log log;
-      snprintf(log.message, sizeof (log.message), "chksum error");
-      Serial.write(reinterpret_cast<const uint8_t *>(&log), sizeof(log));
+      
+//      snprintf(log.message, sizeof (log.message), "chksum error");
+//      Serial.write(reinterpret_cast<const uint8_t *>(&log), sizeof(log));
+//      snprintf(log.message, sizeof (log.message), angle_sensor_->WholeMessage());
+//      Serial.write(reinterpret_cast<const uint64_t *>(&log), sizeof(log));
+      Log::create("My message %d", angle_sensor_->WholeMessage()).write(&Serial); 
       return quori::Result<float>();
     }
 
@@ -147,7 +155,7 @@ public:
     }
 
     prev_measured_ = measured_filter_p1_.update(next);
-    // prev_measured_ = measured_filter_p2_.update(prev_measured_);
+    //prev_measured_ = measured_filter_p2_.update(prev_measured_);
 
     return prev_measured_;
   }
@@ -432,6 +440,8 @@ void loop()
 
   const unsigned long duration = end - now;
 
-
-  delay(10 - duration);
+  
+  if (duration< delayms){
+    delay(delayms - duration);
+  }
 }

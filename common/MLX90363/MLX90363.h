@@ -18,6 +18,7 @@ public:
     bool SendNOP();
     int64_t ReadAngle();
     void PrintReceiveBuffer();
+    double MLX90363::WholeMessage();
 private:
     uint8_t slave_select;
     uint8_t receive_buffer[8];
