@@ -1,20 +1,4 @@
-// Per-robot configuration:
-
-// -1.8f + 0.69f
-// -2.9388f - 0.77f
-//Right Zero Positions for this Robot
-//const static float QUORI_CONFIG_ZERO_POSITION_X = 0.5737;
-//const static float QUORI_CONFIG_ZERO_POSITION_Y = 5.5126;
-//Left Zero Positions for this Robot
-const static float QUORI_CONFIG_ZERO_POSITION_X = 1.93;
-const static float QUORI_CONFIG_ZERO_POSITION_Y = 1.10;
-
-// Comment this for the right arm
-// #define QUORI_CONFIG_ARM_LEFT
-// Comment this for the left arm
-#define QUORI_CONFIG_ARM_RIGHT
-
-
+#include "calibration.hpp"
 
 #define USE_USBCON
 #include <Arduino.h>
@@ -49,7 +33,7 @@ const static float TICKS2RADIANS = (2.0 * PI / 16383.0);
 const static float TICKS_PER_REV = 16383.0;
 const static size_t MOTOR_BAUD_RATE = 38400;
 const static unsigned long READ_TIMEOUT = 5;
-const unsigned char             delayms = 10;// 10 is 100Hz goal, 20 is 50Hz goal
+const unsigned long DELAY_MS = 10;// 10 is 100Hz goal, 20 is 50Hz goal
 
 template<typename T>
 inline T clamp(T value, T min, T max)
@@ -342,8 +326,14 @@ void setup()
   MLX90363::InitializeSPI(11, 12, 13);
 
   // Initialize the actuators
-  actuators[0].initialize(QUORI_CONFIG_ZERO_POSITION_X);
-  actuators[1].initialize(QUORI_CONFIG_ZERO_POSITION_Y);
+
+#ifdef QUORI_CONFIG_ARM_LEFT
+  actuators[0].initialize(QUORI_LEFT_ARM_ZERO_POSITION_X);
+  actuators[1].initialize(QUORI_LEFT_ARM_ZERO_POSITION_Y);
+#else
+  actuators[0].initialize(QUORI_RIGHT_ARM_ZERO_POSITION_X);
+  actuators[1].initialize(QUORI_RIGHT_ARM_ZERO_POSITION_Y);
+#endif
 
   state.positions[0] = 0.0f;
   state.positions[1] = 0.0f;
@@ -476,7 +466,7 @@ void loop()
   const unsigned long duration = end - now;
 
   
-  if (duration< delayms){
-    delay(delayms - duration);
+  if (duration < DELAY_MS){
+    delay(DELAY_MS - duration);
   }
 }
