@@ -141,20 +141,20 @@ int64_t MLX90363::ReadAngle()
         receive_buffer[0] | ((receive_buffer[1]&0x3F)<<8)
     ); 
 
-    if (prev_value > 0x4000 - OVERFLOW_EPSILON && raw_value < OVERFLOW_EPSILON)
-    {
-        summed_value += (0x4000 - prev_value) + raw_value;
-    }
-    else if (prev_value < OVERFLOW_EPSILON && raw_value > 0x4000 - OVERFLOW_EPSILON)
-    {
-        summed_value += prev_value + (0x4000 - raw_value);
-    }
-    else
-    {
-        summed_value += raw_value - prev_value;
-    }
+    // if (prev_value > 0x4000 - OVERFLOW_EPSILON && raw_value < OVERFLOW_EPSILON)
+    // {
+    //     summed_value += (0x4000 - prev_value) + raw_value;
+    // }
+    // else if (prev_value < OVERFLOW_EPSILON && raw_value > 0x4000 - OVERFLOW_EPSILON)
+    // {
+    //     summed_value += prev_value + (0x4000 - raw_value);
+    // }
+    // else
+    // {
+    //     summed_value += raw_value - prev_value;
+    // }
 
-    return summed_value;
+    return raw_value - zero_position;
 }
 
 void MLX90363::PrintReceiveBuffer()
