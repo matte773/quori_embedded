@@ -63,6 +63,7 @@ public:
     , prev_position_(0.0f)
     , prev_measured_(0.0f)
     , measured_filter_p2_(0.08f)
+    , disconnected_(false)
   {
   }
 
@@ -105,7 +106,13 @@ public:
       delay(1);
     }
 
-    if (!angle_control_client_.obs_angular_displacement_.IsFresh()) return quori::Result<float>();
+    if (!angle_control_client_.obs_angular_displacement_.IsFresh())
+    {
+      disconnected_ = true;
+      return quori::Result<float>();
+    }
+
+    disconnected_ = false;
     return prev_position_ = angle_control_client_.obs_angular_displacement_.get_reply();
   }
 
@@ -155,6 +162,11 @@ public:
     write_();
   }
 
+  bool isDisconnected()
+  {
+    return disconnected_;
+  }
+
   int64_t prev_ticks_;
 
 
@@ -202,6 +214,8 @@ private:
 
   quori::MedianFilter<float, 3> measured_filter_p1_;
   quori::Filter<float> measured_filter_p2_;
+
+  bool disconnected_;
 };
 
 static Actuator actuators[2] = {
@@ -385,6 +399,7 @@ uint8_t incoming_buffer[256];
 size_t incoming_buffer_length = 0;
 
 size_t iter = 0;
+size_t disconnected_count = 0;
 
 
 void loop()
@@ -414,6 +429,20 @@ void loop()
 
     const bool success = measured0.isOk() && measured1.isOk() && position0.isOk() && position1.isOk();
 
+    if (actuators[0].isDisconnected() || actuators[1].isDisconnected())
+    {
+      ++disconnected_count;
+    }
+    else
+    {
+      disconnected_count = 0;
+    }
+
+    if (disconnected_count > 100)
+    {
+      iter = 0;
+    }
+
     if (success)
     {
       state.measurement_time = now;
@@ -431,7 +460,8 @@ void loop()
 
       // low pass filter
       const float filtered_y = position_filters[1].update(raw_y);
-      
+    
+
       if (iter > 200)
       {
         actuators[0].setPosition(filtered_x);
