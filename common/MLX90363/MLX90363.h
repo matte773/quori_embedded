@@ -24,7 +24,7 @@ private:
     uint8_t receive_buffer[8];
     uint8_t send_buffer[8];
     uint8_t crc;
-    uint16_t raw_value;
+    int16_t raw_value;
     int64_t summed_value;
     int16_t zero_position;
     int i,j;
