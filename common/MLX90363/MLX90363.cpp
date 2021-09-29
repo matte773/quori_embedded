@@ -140,6 +140,11 @@ int64_t MLX90363::ReadAngle()
     raw_value = (int16_t)(
         receive_buffer[0] | ((receive_buffer[1]&0x3F)<<8)
     ); 
+    raw_value = raw_value - zero_position;
+    if (raw_value >= 8191)
+      raw_value -= 16384;
+    if (raw_value <= -8192)
+      raw_value += 16384;
 
     // if (prev_value > 0x4000 - OVERFLOW_EPSILON && raw_value < OVERFLOW_EPSILON)
     // {
@@ -154,7 +159,7 @@ int64_t MLX90363::ReadAngle()
     //     summed_value += raw_value - prev_value;
     // }
 
-    return raw_value - zero_position;
+    return raw_value;
 }
 
 void MLX90363::PrintReceiveBuffer()
