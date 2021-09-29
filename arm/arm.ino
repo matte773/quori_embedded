@@ -132,7 +132,7 @@ public:
 //      Serial.write(reinterpret_cast<const uint8_t *>(&log), sizeof(log));
 //      snprintf(log.message, sizeof (log.message), angle_sensor_->WholeMessage());
 //      Serial.write(reinterpret_cast<const uint64_t *>(&log), sizeof(log));
-      Log::create("My message %d", angle_sensor_->WholeMessage()).write(&Serial); 
+//      Log::create("My message %d", angle_sensor_->WholeMessage()).write(&Serial); 
       return quori::Result<float>();
     }
 
