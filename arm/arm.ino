@@ -6,13 +6,13 @@
 //const static float QUORI_CONFIG_ZERO_POSITION_X = 0.5737;
 //const static float QUORI_CONFIG_ZERO_POSITION_Y = 5.5126;
 //Left Zero Positions for this Robot
-const static float QUORI_CONFIG_ZERO_POSITION_X = 0.9434;
-const static float QUORI_CONFIG_ZERO_POSITION_Y = 2.5247;
+const static float QUORI_CONFIG_ZERO_POSITION_X = 1.93;
+const static float QUORI_CONFIG_ZERO_POSITION_Y = 1.10;
 
 // Comment this for the right arm
- #define QUORI_CONFIG_ARM_LEFT
+// #define QUORI_CONFIG_ARM_LEFT
 // Comment this for the left arm
-//#define QUORI_CONFIG_ARM_RIGHT
+#define QUORI_CONFIG_ARM_RIGHT
 
 
 
@@ -358,6 +358,37 @@ void setup()
   last_command_time = 0;
   
   Serial.flush();
+
+  // const static size_t MEASUREMENT_COUNT = 20;
+
+  // // Initialize measurements
+  // for (size_t i = 0; i < MEASUREMENT_COUNT;)
+  // {
+  //   const Result<float> measured = actuators[0].getMeasured();
+  //   if (measured.isErr())
+  //   {
+  //     continue;
+  //   }
+
+  //   state.measured[0] += measured.ok();
+  //   ++i;
+  //   delay(10);
+  // }
+  // state.measured[0] /= MEASUREMENT_COUNT;
+
+  // for (size_t i = 0; i < MEASUREMENT_COUNT;)
+  // {
+  //   const Result<float> measured = actuators[1].getMeasured();
+  //   if (measured.isErr())
+  //   {
+  //     continue;
+  //   }
+
+  //   state.measured[1] += measured.ok();
+  //   ++i;
+  //   delay(10);
+  // }
+  // state.measured[1] /= MEASUREMENT_COUNT;
 }
 
 uint8_t incoming_buffer[256];
@@ -372,6 +403,7 @@ void loop()
 
   if (now - last_command_time > COMMAND_TIMEOUT)
   {
+    iter = 0;
     coast();
   }
   else
@@ -410,13 +442,16 @@ void loop()
       // low pass filter
       const float filtered_y = position_filters[1].update(raw_y);
       
-      if (iter > 100)
+      if (iter > 200)
       {
         actuators[0].setPosition(filtered_x);
         actuators[1].setPosition(filtered_y);
       }
       else
       {
+        const float factor = static_cast<float>(iter) / 200.0f;
+        actuators[0].setPosition(filtered_x * factor + position0.ok() * (1.0f - factor));
+        actuators[1].setPosition(filtered_y * factor + position1.ok() * (1.0f - factor));
         iter++;
       }
     }
