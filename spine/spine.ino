@@ -238,11 +238,11 @@ void loop()
         const float factor = static_cast<float>(iter) / 400.0f;
         cmd *= factor;
         set_volts(&cmd, &serial_mt);
+        iter++;
       }
       else
       {
-        set_volts(&cmd, &serial_mt);
-        iter++;
+        set_volts(&cmd, &serial_mt);  
       }
 
     }
