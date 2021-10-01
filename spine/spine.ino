@@ -1,7 +1,7 @@
 // Per-robot configuration:
 
-const static float QUORI_CONFIG_ZERO_POSITION_WAIST = 0.18f;
-const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = 0.9f;
+const static float QUORI_CONFIG_ZERO_POSITION_WAIST = -2.007f;//0.18f;
+const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = 1.6457f;//0.9f;
 
 
 #define USE_USBCON
@@ -211,7 +211,8 @@ void loop()
   }
   else
   {
-    if (state.measured[0] >= MOTOR_UPP_LIMIT || state.measured[0] <= MOTOR_LOW_LIMIT || state.waist[0] >= JOINT_UPP_LIMIT || state.waist[0] <= JOINT_LOW_LIMIT)
+//    if (state.measured[0] >= MOTOR_UPP_LIMIT || state.measured[0] <= MOTOR_LOW_LIMIT || state.waist[0] >= JOINT_UPP_LIMIT || state.waist[0] <= JOINT_LOW_LIMIT)
+    if ((state.waist[0] >= JOINT_UPP_LIMIT && (state.positions[0]/G_RATIO)>= JOINT_UPP_LIMIT) || (state.waist[0] <= JOINT_LOW_LIMIT && (state.positions[0]/G_RATIO)<= JOINT_LOW_LIMIT))
     {
       coast();
     }
