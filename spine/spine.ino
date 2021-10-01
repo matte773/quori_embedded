@@ -68,6 +68,9 @@ Filter<float> mt_position_filter(0.175f);
 
 bool inited = false;
 bool got_states = false;
+size_t iter = 0;
+
+
 size_t processMessage(const std::uint8_t *const message, const size_t max_length, struct GlobalState *const state)
 {
   if (max_length < 1) return 0;
@@ -207,6 +210,7 @@ void loop()
 
   if (now - last_command_time > COMMAND_TIMEOUT)
   {
+    iter = 0;
     coast();
   }
   else
@@ -229,7 +233,17 @@ void loop()
       float cmd = pos_mt_pid.PidCompute(state.measured[0], delta_secs, 1.0 / delta_secs);
 
       int serial_mt = 0;
-      set_volts(&cmd, &serial_mt);
+      if (iter < 400)
+      {
+        const float factor = static_cast<float>(iter) / 400.0f;
+        cmd *= factor;
+        set_volts(&cmd, &serial_mt);
+      }
+      else
+      {
+        set_volts(&cmd, &serial_mt);
+        iter++;
+      }
 
     }
   }
