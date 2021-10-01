@@ -106,7 +106,7 @@ size_t processMessage(const std::uint8_t *const message, const size_t max_length
       States states;
       states.positions[0] = state->waist[0];
 
-      states.measured[0] = state->measured[0];
+      states.measured[0] = state->waist[0];//state->measured[0];
       states.positions[1] = max_length;
 
       Serial.write(reinterpret_cast<const uint8_t *>(&states), sizeof(states));

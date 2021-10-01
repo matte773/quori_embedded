@@ -15,7 +15,7 @@
 #define UPDATE_MSG_TIME       10000                  // ROS communication rate set in microseconds
 #define RAD2DEG               180/PI
 
-#define G_RATIO 2.0
+#define G_RATIO 5.0
 
 #define JOINT_UPP_LIMIT  29.0*3.1415/180.0
 #define JOINT_LOW_LIMIT  -14.0*3.1415/180.0
