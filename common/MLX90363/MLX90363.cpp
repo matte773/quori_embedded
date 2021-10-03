@@ -119,7 +119,15 @@ bool MLX90363::Checksum(uint8_t *message)
     for (j=0; j<7; j++)
         message[7] = cba_256_TAB[ message[j] ^ message[7] ];
     message[7] = ~message[7];
-    return !(message[7]==crc);
+    if ((receive_buffer[2]|receive_buffer[3]|receive_buffer[5])!=0x00){
+    	// a different message has been recieved
+    	return true;
+    }
+    if ((receive_buffer[6] >>6)!= 0x00){
+    // the message is not and apla message.
+    	return true;
+    }
+    return !(message[7]==crc);// returning true means there is an error.
 }
 
 int64_t MLX90363::ReadAngle()
@@ -132,21 +140,26 @@ int64_t MLX90363::ReadAngle()
     raw_value = (int16_t)(
         receive_buffer[0] | ((receive_buffer[1]&0x3F)<<8)
     ); 
+    raw_value = raw_value - zero_position;
+    if (raw_value >= 8191)
+      raw_value -= 16384;
+    if (raw_value <= -8192)
+      raw_value += 16384;
 
-    if (prev_value > 0x4000 - OVERFLOW_EPSILON && raw_value < OVERFLOW_EPSILON)
-    {
-        summed_value += (0x4000 - prev_value) + raw_value;
-    }
-    else if (prev_value < OVERFLOW_EPSILON && raw_value > 0x4000 - OVERFLOW_EPSILON)
-    {
-        summed_value += prev_value + (0x4000 - raw_value);
-    }
-    else
-    {
-        summed_value += raw_value - prev_value;
-    }
+    // if (prev_value > 0x4000 - OVERFLOW_EPSILON && raw_value < OVERFLOW_EPSILON)
+    // {
+    //     summed_value += (0x4000 - prev_value) + raw_value;
+    // }
+    // else if (prev_value < OVERFLOW_EPSILON && raw_value > 0x4000 - OVERFLOW_EPSILON)
+    // {
+    //     summed_value += prev_value + (0x4000 - raw_value);
+    // }
+    // else
+    // {
+    //     summed_value += raw_value - prev_value;
+    // }
 
-    return summed_value;
+    return raw_value;
 }
 
 void MLX90363::PrintReceiveBuffer()
@@ -154,4 +167,13 @@ void MLX90363::PrintReceiveBuffer()
   for (i=0; i<8; i++) {
     Serial.printf("Byte %d: 0x%02x\n",i,receive_buffer[i]);
   }
+}
+
+double MLX90363::WholeMessage()
+{
+double wholemessage = 0;
+for (i=0; i<8; i++) {
+    wholemessage = wholemessage+(int64_t)(receive_buffer[i]<<(8*i));
+  }
+return wholemessage;
 }

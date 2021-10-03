@@ -1,17 +1,4 @@
-// Per-robot configuration:
-
-// -1.8f + 0.69f
-// -2.9388f - 0.77f
-
-const static float QUORI_CONFIG_ZERO_POSITION_X = 1.93;
-const static float QUORI_CONFIG_ZERO_POSITION_Y = 1.10;
-
-// Comment this for the right arm
-// #define QUORI_CONFIG_ARM_LEFT
-// Comment this for the left arm
-#define QUORI_CONFIG_ARM_RIGHT
-
-
+#include "calibration.hpp"
 
 #define USE_USBCON
 #include <Arduino.h>
@@ -46,6 +33,7 @@ const static float TICKS2RADIANS = (2.0 * PI / 16383.0);
 const static float TICKS_PER_REV = 16383.0;
 const static size_t MOTOR_BAUD_RATE = 38400;
 const static unsigned long READ_TIMEOUT = 5;
+const unsigned long DELAY_MS = 10;// 10 is 100Hz goal, 20 is 50Hz goal
 
 template<typename T>
 inline T clamp(T value, T min, T max)
@@ -75,6 +63,7 @@ public:
     , prev_position_(0.0f)
     , prev_measured_(0.0f)
     , measured_filter_p2_(0.08f)
+    , disconnected_(false)
   {
   }
 
@@ -117,7 +106,13 @@ public:
       delay(1);
     }
 
-    if (!angle_control_client_.obs_angular_displacement_.IsFresh()) return quori::Result<float>();
+    if (!angle_control_client_.obs_angular_displacement_.IsFresh())
+    {
+      disconnected_ = true;
+      return quori::Result<float>();
+    }
+
+    disconnected_ = false;
     return prev_position_ = angle_control_client_.obs_angular_displacement_.get_reply();
   }
 
@@ -132,8 +127,12 @@ public:
     if (angle_sensor_->SendGET3())
     {
       Log log;
-      snprintf(log.message, sizeof (log.message), "chksum error");
-      Serial.write(reinterpret_cast<const uint8_t *>(&log), sizeof(log));
+      
+//      snprintf(log.message, sizeof (log.message), "chksum error");
+//      Serial.write(reinterpret_cast<const uint8_t *>(&log), sizeof(log));
+//      snprintf(log.message, sizeof (log.message), angle_sensor_->WholeMessage());
+//      Serial.write(reinterpret_cast<const uint64_t *>(&log), sizeof(log));
+//      Log::create("My message %d", angle_sensor_->WholeMessage()).write(&Serial); 
       return quori::Result<float>();
     }
 
@@ -147,7 +146,7 @@ public:
     }
 
     prev_measured_ = measured_filter_p1_.update(next);
-    // prev_measured_ = measured_filter_p2_.update(prev_measured_);
+    //prev_measured_ = measured_filter_p2_.update(prev_measured_);
 
     return prev_measured_;
   }
@@ -161,6 +160,11 @@ public:
   {
     angle_control_client_.ctrl_coast_.set(comm_);
     write_();
+  }
+
+  bool isDisconnected()
+  {
+    return disconnected_;
   }
 
   int64_t prev_ticks_;
@@ -210,6 +214,8 @@ private:
 
   quori::MedianFilter<float, 3> measured_filter_p1_;
   quori::Filter<float> measured_filter_p2_;
+
+  bool disconnected_;
 };
 
 static Actuator actuators[2] = {
@@ -334,8 +340,14 @@ void setup()
   MLX90363::InitializeSPI(11, 12, 13);
 
   // Initialize the actuators
-  actuators[0].initialize(QUORI_CONFIG_ZERO_POSITION_X);
-  actuators[1].initialize(QUORI_CONFIG_ZERO_POSITION_Y);
+
+#ifdef QUORI_CONFIG_ARM_LEFT
+  actuators[0].initialize(QUORI_LEFT_ARM_ZERO_POSITION_X);
+  actuators[1].initialize(QUORI_LEFT_ARM_ZERO_POSITION_Y);
+#else
+  actuators[0].initialize(QUORI_RIGHT_ARM_ZERO_POSITION_X);
+  actuators[1].initialize(QUORI_RIGHT_ARM_ZERO_POSITION_Y);
+#endif
 
   state.positions[0] = 0.0f;
   state.positions[1] = 0.0f;
@@ -350,12 +362,44 @@ void setup()
   last_command_time = 0;
   
   Serial.flush();
+
+  // const static size_t MEASUREMENT_COUNT = 20;
+
+  // // Initialize measurements
+  // for (size_t i = 0; i < MEASUREMENT_COUNT;)
+  // {
+  //   const Result<float> measured = actuators[0].getMeasured();
+  //   if (measured.isErr())
+  //   {
+  //     continue;
+  //   }
+
+  //   state.measured[0] += measured.ok();
+  //   ++i;
+  //   delay(10);
+  // }
+  // state.measured[0] /= MEASUREMENT_COUNT;
+
+  // for (size_t i = 0; i < MEASUREMENT_COUNT;)
+  // {
+  //   const Result<float> measured = actuators[1].getMeasured();
+  //   if (measured.isErr())
+  //   {
+  //     continue;
+  //   }
+
+  //   state.measured[1] += measured.ok();
+  //   ++i;
+  //   delay(10);
+  // }
+  // state.measured[1] /= MEASUREMENT_COUNT;
 }
 
 uint8_t incoming_buffer[256];
 size_t incoming_buffer_length = 0;
 
 size_t iter = 0;
+size_t disconnected_count = 0;
 
 
 void loop()
@@ -364,6 +408,7 @@ void loop()
 
   if (now - last_command_time > COMMAND_TIMEOUT)
   {
+    iter = 0;
     coast();
   }
   else
@@ -384,6 +429,20 @@ void loop()
 
     const bool success = measured0.isOk() && measured1.isOk() && position0.isOk() && position1.isOk();
 
+    if (actuators[0].isDisconnected() || actuators[1].isDisconnected())
+    {
+      ++disconnected_count;
+    }
+    else
+    {
+      disconnected_count = 0;
+    }
+
+    if (disconnected_count > 100)
+    {
+      iter = 0;
+    }
+
     if (success)
     {
       state.measurement_time = now;
@@ -401,14 +460,18 @@ void loop()
 
       // low pass filter
       const float filtered_y = position_filters[1].update(raw_y);
-      
-      if (iter > 100)
+    
+
+      if (iter > 200)
       {
         actuators[0].setPosition(filtered_x);
         actuators[1].setPosition(filtered_y);
       }
       else
       {
+        const float factor = static_cast<float>(iter) / 200.0f;
+        actuators[0].setPosition(filtered_x * factor + position0.ok() * (1.0f - factor));
+        actuators[1].setPosition(filtered_y * factor + position1.ok() * (1.0f - factor));
         iter++;
       }
     }
@@ -432,6 +495,8 @@ void loop()
 
   const unsigned long duration = end - now;
 
-
-  delay(10 - duration);
+  
+  if (duration < DELAY_MS){
+    delay(DELAY_MS - duration);
+  }
 }

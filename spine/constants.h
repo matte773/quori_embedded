@@ -15,12 +15,12 @@
 #define UPDATE_MSG_TIME       10000                  // ROS communication rate set in microseconds
 #define RAD2DEG               180/PI
 
-#define G_RATIO 2.0
+#define G_RATIO 5.0
 
-#define JOINT_UPP_LIMIT  29.0*3.1415/180.0
-#define JOINT_LOW_LIMIT  -14.0*3.1415/180.0
-#define MOTOR_UPP_LIMIT  29.0*3.1415/180.0*G_RATIO 
-#define MOTOR_LOW_LIMIT  -14.0*3.1415/180.0*G_RATIO 
+#define JOINT_UPP_LIMIT  27.0*3.1415/180.0
+#define JOINT_LOW_LIMIT  -12.1*3.1415/180.0
+#define MOTOR_UPP_LIMIT  27.0*3.1415/180.0*G_RATIO 
+#define MOTOR_LOW_LIMIT  -12.1*3.1415/180.0*G_RATIO 
 #define SENSOR_MAX 16383.0
 #define SENSOR_HALF 8191.5
 

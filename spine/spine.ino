@@ -1,7 +1,7 @@
 // Per-robot configuration:
 
-const static float QUORI_CONFIG_ZERO_POSITION_WAIST = 0.18f;
-const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = 0.9f;
+const static float QUORI_CONFIG_ZERO_POSITION_WAIST = -2.007f;//0.18f;
+const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = 1.6457f;//0.9f;
 
 
 #define USE_USBCON
@@ -68,6 +68,9 @@ Filter<float> mt_position_filter(0.175f);
 
 bool inited = false;
 bool got_states = false;
+size_t iter = 0;
+
+
 size_t processMessage(const std::uint8_t *const message, const size_t max_length, struct GlobalState *const state)
 {
   if (max_length < 1) return 0;
@@ -106,7 +109,7 @@ size_t processMessage(const std::uint8_t *const message, const size_t max_length
       States states;
       states.positions[0] = state->waist[0];
 
-      states.measured[0] = state->measured[0];
+      states.measured[0] = state->waist[0];//state->measured[0];
       states.positions[1] = max_length;
 
       Serial.write(reinterpret_cast<const uint8_t *>(&states), sizeof(states));
@@ -207,11 +210,13 @@ void loop()
 
   if (now - last_command_time > COMMAND_TIMEOUT)
   {
+    iter = 0;
     coast();
   }
   else
   {
-    if (state.measured[0] >= MOTOR_UPP_LIMIT || state.measured[0] <= MOTOR_LOW_LIMIT || state.waist[0] >= JOINT_UPP_LIMIT || state.waist[0] <= JOINT_LOW_LIMIT)
+//    if (state.measured[0] >= MOTOR_UPP_LIMIT || state.measured[0] <= MOTOR_LOW_LIMIT || state.waist[0] >= JOINT_UPP_LIMIT || state.waist[0] <= JOINT_LOW_LIMIT)
+    if ((state.waist[0] >= JOINT_UPP_LIMIT && (state.positions[0]/G_RATIO)>= JOINT_UPP_LIMIT) || (state.waist[0] <= JOINT_LOW_LIMIT && (state.positions[0]/G_RATIO)<= JOINT_LOW_LIMIT))
     {
       coast();
     }
@@ -228,7 +233,17 @@ void loop()
       float cmd = pos_mt_pid.PidCompute(state.measured[0], delta_secs, 1.0 / delta_secs);
 
       int serial_mt = 0;
-      set_volts(&cmd, &serial_mt);
+      if (iter < 400)
+      {
+        const float factor = static_cast<float>(iter) / 400.0f;
+        cmd *= factor;
+        set_volts(&cmd, &serial_mt);
+        iter++;
+      }
+      else
+      {
+        set_volts(&cmd, &serial_mt);  
+      }
 
     }
   }
