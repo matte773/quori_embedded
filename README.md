@@ -5,22 +5,27 @@ This repository contains the microcontroller code for Quori's arms and spine. No
 ## Installation
 
 Unfortunately the arduino IDE doesn't support preprocessor arguments on the command line. We must modify the source code directly for each microcontroller.
-
+### Calibration for Arms
+  1. Open `arm.calibration.hpp` in an editor.
+  2.  At the top of the file, configure the `QUORI_LEFT_ARM_ZERO_POSITION_X` and `QUORI_LEFT_ARM_ZERO_POSITION_Y` and `QUORI_RIGHT_ARM_ZERO_POSITION_X` and `QUORI_RIGHT_ARM_ZERO_POSITION_Y`.
+  
 ### Left Arm
   1. Disconnect all microcontrollers (arms and spine) from the computer.
   2. Plug in the left arm
   3. Open `arm/arm.ino` in the arduino IDE
-  4. At the top of the file, configure the `QUORI_CONFIG_ZERO_POSITION_X` and `QUORI_CONFIG_ZERO_POSITION_Y`. Ensure `QUORI_CONFIG_ARM_LEFT` is **uncommented** and `QUORI_CONFIG_ARM_RIGHT` is **commented**.
-  5. Upload to the left arm's microcontroller
-  6. Unplug the left arm
+  4. Open `arm.calibration.hpp` in an editor. 
+  5. Near the end of the file, ensure `#define QUORI_CONFIG_ARM_LEFT` is **uncommented** and ` #define QUORI_CONFIG_ARM_RIGHT` is **commented**.
+  6. Upload to the left arm's microcontroller
+  7. Unplug the left arm
 
 ### Right Arm
   1. Disconnect all microcontrollers (arms and spine) from the computer.
   2. Plug in the right arm
   3. Open `arm/arm.ino` in the arduino IDE
-  4. At the top of the file, configure the `QUORI_CONFIG_ZERO_POSITION_X` and `QUORI_CONFIG_ZERO_POSITION_Y`. Ensure `QUORI_CONFIG_ARM_LEFT` is **commented** and `QUORI_CONFIG_ARM_RIGHT` is **uncommented**.
-  5. Upload to the right arm's microcontroller
-  6. Unplug the right arm
+  4. Open `arm.calibration.hpp` in an editor. 
+  5. Near the end of the file, ensure `#define QUORI_CONFIG_ARM_RIGHT` is **uncommented** and ` #define QUORI_CONFIG_ARM_LEFT` is **commented**.
+  6. Upload to the right arm's microcontroller
+  7. Unplug the right arm
 
 ### Spine
   1. Disconnect all microcontrollers (arms and spine) from the computer.
@@ -29,6 +34,10 @@ Unfortunately the arduino IDE doesn't support preprocessor arguments on the comm
   4. At the top of the file, configure the `QUORI_CONFIG_ZERO_POSITION_WAIST` and `QUORI_CONFIG_ZERO_POSITION_MOTOR`.
   5. Upload to the spine's microcontroller
   6. Unplug the spine
+  
+### Base
+  1. The base embedded code does not need to be flashed.
+  2. See `quori_controller` [README]( https://github.com/semio-ai/quori_ros/blob/master/src/quori_controller/readme.md) for information of calibrating the turret position.
 
 ### `udev` Rules
   1. Connect all microcontrollers
