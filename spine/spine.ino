@@ -1,7 +1,7 @@
 // Per-robot configuration:
 
-const static float QUORI_CONFIG_ZERO_POSITION_WAIST = -2.007f;//0.18f;
-const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = 1.6457f;//0.9f;
+const static float QUORI_CONFIG_ZERO_POSITION_WAIST = 0.18f - 0.07f + 0.25f;
+const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = -3.20f;
 
 
 #define USE_USBCON
@@ -84,12 +84,12 @@ size_t processMessage(const std::uint8_t *const message, const size_t max_length
       if (max_length < sizeof (SetPositions)) return 0;
       const SetPositions *const set_positions = reinterpret_cast<const SetPositions *>(message);
 
-      const float p = set_positions->positions[0] * G_RATIO;
+      const float p = -set_positions->positions[0] * G_RATIO;
       state->positions[0] = clamp(p, MOTOR_LOW_LIMIT, MOTOR_UPP_LIMIT);
 
       SetPositionsRes set_positions_res;
-      set_positions_res.values[0] = 0;
-      set_positions_res.values[1] = 0;
+      set_positions_res.values[0] = state->measured[0];
+      set_positions_res.values[1] = state->waist[0];
       set_positions_res.values[2] = 0;
       set_positions_res.values[3] = 0;
 
@@ -123,7 +123,7 @@ size_t processMessage(const std::uint8_t *const message, const size_t max_length
       const Initialize *initialize = reinterpret_cast<const Initialize *>(message);
 
       Initialized initialized;
-      strncpy(initialized._0, "waist_hinge", sizeof(initialized._0));
+      strncpy(initialized._0, "waist_pitch", sizeof(initialized._0));
       Serial.write(reinterpret_cast<const uint8_t *>(&initialized), sizeof(Initialized));
       inited = true;
 

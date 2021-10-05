@@ -1,4 +1,4 @@
-#include "calibration.hpp"
+ #include "calibration.hpp"
 
 #define USE_USBCON
 #include <Arduino.h>
@@ -25,6 +25,7 @@
 #include "common/libiqinetics/src/packet_finder.c"
 #include "common/quori/message.cpp"
 #include "common/quori/Result.hpp"
+#include "common/quori/MultiResult.hpp"
 
 #include <cmath>
 
@@ -47,13 +48,29 @@ inline T clamp(T value, T min, T max)
 bool inited = false;
 size_t i = 0;
 
-
-
 class Actuator
 {
 public:
+  enum class GetMeasuredState : uint8_t
+  {
+    Ok,
+    ChecksumError,
+    LimitViolation,
+  };
+
+  typedef quori::MultiResult<GetMeasuredState, float> GetMeasuredResult;
+
+  enum class State : uint8_t
+  {
+    Ok,
+    ChksumError,
+    LimitViolation,
+    NotFresh
+  } state_;
+
   Actuator(HardwareSerial *const serial, const uint8_t angle_sensor_pin, const float limit_min, const float limit_max)
-    : serial_(serial)
+    : state_(State::Ok)
+    , serial_(serial)
     , angle_control_client_(0)
     , angle_sensor_pin_(angle_sensor_pin)
     , angle_sensor_(nullptr)
@@ -109,8 +126,11 @@ public:
     if (!angle_control_client_.obs_angular_displacement_.IsFresh())
     {
       disconnected_ = true;
+      state_ = State::NotFresh;
       return quori::Result<float>();
     }
+
+    state_ = State::Ok;
 
     disconnected_ = false;
     return prev_position_ = angle_control_client_.obs_angular_displacement_.get_reply();
@@ -121,19 +141,20 @@ public:
     return prev_position_;
   }
 
-  quori::Result<float> getMeasured()
+  GetMeasuredResult getMeasured()
   {
     // This function returns true on ERROR. Sigh.
     if (angle_sensor_->SendGET3())
     {
       Log log;
+      // state_ = State::ChksumError;
       
 //      snprintf(log.message, sizeof (log.message), "chksum error");
 //      Serial.write(reinterpret_cast<const uint8_t *>(&log), sizeof(log));
 //      snprintf(log.message, sizeof (log.message), angle_sensor_->WholeMessage());
 //      Serial.write(reinterpret_cast<const uint64_t *>(&log), sizeof(log));
 //      Log::create("My message %d", angle_sensor_->WholeMessage()).write(&Serial); 
-      return quori::Result<float>();
+      return GetMeasuredResult(GetMeasuredState::ChecksumError, 0.0f);
     }
 
     prev_ticks_ = angle_sensor_->ReadAngle();
@@ -142,13 +163,16 @@ public:
 
     if (next < limit_min_ || next > limit_max_)
     {
-      return quori::Result<float>();
+      // state_ = State::LimitViolation;
+      return GetMeasuredResult(GetMeasuredState::LimitViolation, next);
     }
 
     prev_measured_ = measured_filter_p1_.update(next);
     //prev_measured_ = measured_filter_p2_.update(prev_measured_);
 
-    return prev_measured_;
+    
+
+    return GetMeasuredResult(GetMeasuredState::Ok, prev_measured_);
   }
 
   float getPrevMeasured() const
@@ -167,7 +191,23 @@ public:
     return disconnected_;
   }
 
+  float getLimitMin()
+  {
+    return limit_min_;
+  }
+
+  float getLimitMax()
+  {
+    return limit_max_;
+  }
+
+  void setSafe(bool safe)
+  {
+    safe_ = safe;
+  }
+
   int64_t prev_ticks_;
+  
 
 
 private:
@@ -216,6 +256,8 @@ private:
   quori::Filter<float> measured_filter_p2_;
 
   bool disconnected_;
+
+  
 };
 
 static Actuator actuators[2] = {
@@ -224,6 +266,8 @@ static Actuator actuators[2] = {
   // outer
   Actuator(&Serial3, 10, -1.3, 1.3)
 };
+
+int asd = 0;
 
 void coast()
 {
@@ -270,10 +314,10 @@ size_t processMessage(const std::uint8_t *const message, const size_t max_length
 
       SetPositionsRes set_positions_res;
 
-      set_positions_res.values[0] = actuators[0].prev_ticks_;
-      set_positions_res.values[1] = actuators[1].prev_ticks_;
-      set_positions_res.values[2] = set_positions->positions[0];
-      set_positions_res.values[3] = set_positions->positions[1];
+      set_positions_res.values[0] = static_cast<uint8_t>(actuators[1].state_);
+      set_positions_res.values[1] = actuators[0].prev_ticks_;
+      set_positions_res.values[2] = actuators[0].getLimitMin();
+      set_positions_res.values[3] = asd;
       Serial.write(reinterpret_cast<const uint8_t *>(&set_positions_res), sizeof(set_positions_res));
 
       return sizeof(SetPositions);
@@ -294,8 +338,23 @@ size_t processMessage(const std::uint8_t *const message, const size_t max_length
 
       for (int i = 0; i < 2; ++i)
       {
-        const float position = actuators[i].getPrevPosition();
-        const float measured = actuators[i].getPrevMeasured();
+        float position = 0.0f;
+        float measured = 0.0f;
+#ifdef QUORI_CONFIG_ARM_LEFT
+        if (i == 0)
+        {
+          position = -actuators[i].getPrevPosition();
+          measured = -actuators[i].getPrevMeasured();
+        }
+        else
+        {
+          position = actuators[i].getPrevPosition();
+          measured = actuators[i].getPrevMeasured();
+        }
+#else
+        position = actuators[i].getPrevPosition();
+        measured = actuators[i].getPrevMeasured();
+#endif
 
         states.positions[i] = position;
         states.measured[i] = measured;
@@ -315,11 +374,11 @@ size_t processMessage(const std::uint8_t *const message, const size_t max_length
 
       Initialized initialized;
 #ifdef QUORI_CONFIG_ARM_LEFT
-      strncpy(initialized._0, "left_arm_r1", sizeof(initialized._0));
-      strncpy(initialized._1, "left_arm_r2", sizeof(initialized._1));
+      strncpy(initialized._0, "l_shoulder_pitch", sizeof(initialized._0));
+      strncpy(initialized._1, "l_shoulder_roll", sizeof(initialized._1));
 #else
-      strncpy(initialized._0, "right_arm_r1", sizeof(initialized._0));
-      strncpy(initialized._1, "right_arm_r2", sizeof(initialized._1));
+      strncpy(initialized._0, "r_shoulder_pitch", sizeof(initialized._0));
+      strncpy(initialized._1, "r_shoulder_roll", sizeof(initialized._1));
 #endif
       Serial.write(reinterpret_cast<const uint8_t *>(&initialized), sizeof(Initialized));
       
@@ -362,37 +421,6 @@ void setup()
   last_command_time = 0;
   
   Serial.flush();
-
-  // const static size_t MEASUREMENT_COUNT = 20;
-
-  // // Initialize measurements
-  // for (size_t i = 0; i < MEASUREMENT_COUNT;)
-  // {
-  //   const Result<float> measured = actuators[0].getMeasured();
-  //   if (measured.isErr())
-  //   {
-  //     continue;
-  //   }
-
-  //   state.measured[0] += measured.ok();
-  //   ++i;
-  //   delay(10);
-  // }
-  // state.measured[0] /= MEASUREMENT_COUNT;
-
-  // for (size_t i = 0; i < MEASUREMENT_COUNT;)
-  // {
-  //   const Result<float> measured = actuators[1].getMeasured();
-  //   if (measured.isErr())
-  //   {
-  //     continue;
-  //   }
-
-  //   state.measured[1] += measured.ok();
-  //   ++i;
-  //   delay(10);
-  // }
-  // state.measured[1] /= MEASUREMENT_COUNT;
 }
 
 uint8_t incoming_buffer[256];
@@ -417,17 +445,22 @@ void loop()
 
     using namespace quori;
 
-    Result<float> measured0 = actuators[0].getMeasured();
-    Result<float> measured1 = actuators[1].getMeasured();
+    Actuator::GetMeasuredResult measured0 = actuators[0].getMeasured();
+    Actuator::GetMeasuredResult measured1 = actuators[1].getMeasured();
 
 
-    if (measured0.isOk()) state.measured[0] = measured0.ok();
-    if (measured1.isOk()) state.measured[1] = measured1.ok();
+    if (measured0.getState() == Actuator::GetMeasuredState::Ok) state.measured[0] = measured0.value();
+    if (measured1.getState() == Actuator::GetMeasuredState::Ok) state.measured[1] = measured1.value();
 
     Result<float> position0 = actuators[0].getPosition();
     Result<float> position1 = actuators[1].getPosition();
 
-    const bool success = measured0.isOk() && measured1.isOk() && position0.isOk() && position1.isOk();
+    const bool success = (
+      measured0.getState() == Actuator::GetMeasuredState::Ok &&
+      measured1.getState() == Actuator::GetMeasuredState::Ok &&
+      position0.isOk() &&
+      position1.isOk()
+    );
 
     if (actuators[0].isDisconnected() || actuators[1].isDisconnected())
     {
@@ -464,15 +497,39 @@ void loop()
 
       if (iter > 200)
       {
+        asd = 0;
         actuators[0].setPosition(filtered_x);
         actuators[1].setPosition(filtered_y);
       }
       else
       {
+        asd = 1;
         const float factor = static_cast<float>(iter) / 200.0f;
         actuators[0].setPosition(filtered_x * factor + position0.ok() * (1.0f - factor));
         actuators[1].setPosition(filtered_y * factor + position1.ok() * (1.0f - factor));
         iter++;
+      }
+    }
+    else
+    {
+      asd = 3;
+      if (measured0.getState() == Actuator::GetMeasuredState::LimitViolation)
+      {
+        actuators[0].coast();
+        asd = 4;
+      }
+      if (measured1.getState() == Actuator::GetMeasuredState::LimitViolation)
+      {
+        actuators[1].coast();
+        asd = 5;
+      }
+      if (!position0.isOk())
+      {
+        asd = 6;
+      }
+      if (position1.isErr())
+      {
+        asd = 7;
       }
     }
   }
