@@ -308,8 +308,11 @@ size_t processMessage(const std::uint8_t *const message, const size_t max_length
 
       const SetPositions *const set_positions = reinterpret_cast<const SetPositions *>(message);
       
-
+#ifdef QUORI_CONFIG_ARM_LEFT
+      state->positions[0] = clamp(-set_positions->positions[0], -2.4f, 2.4f);
+#else
       state->positions[0] = clamp(set_positions->positions[0], -2.4f, 2.4f);
+#endif
       state->positions[1] = clamp(set_positions->positions[1], -1.3f, 1.3f);
 
       SetPositionsRes set_positions_res;
