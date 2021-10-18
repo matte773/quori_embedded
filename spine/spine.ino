@@ -228,7 +228,7 @@ void loop()
     }
     else
     {
-
+//      Log::create("VIN: %d mV", getVIN()).write(&Serial); 
       
       const float clamped = clamp(state.positions[0], MOTOR_LOW_LIMIT, MOTOR_UPP_LIMIT);
       pos_mt_pid.set_reference(clamped);

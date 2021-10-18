@@ -40,7 +40,7 @@ int getVariable(unsigned char variableID)
     return -1;
   }
   else{
-    return LSB + MSB<<8;
+    return (int)(MSB<<8)+LSB;
   }
 }
 
