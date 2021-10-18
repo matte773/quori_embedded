@@ -1,7 +1,7 @@
 // Per-robot configuration:
 
-const static float QUORI_CONFIG_ZERO_POSITION_WAIST = -2.007f;//0.18f;
-const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = 1.6457f;//0.9f;
+const static float QUORI_CONFIG_ZERO_POSITION_WAIST = 0.6527f;//0.18f;
+const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = 0.1149f;//0.9f;
 
 
 #define USE_USBCON
@@ -20,6 +20,8 @@ const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = 1.6457f;//0.9f;
 #include "additional_serial.h"
 #include "LpfButter1.h"
 #include "pid_linear.hpp"
+
+const unsigned long DELAY_MS = 10;// 10 is 100Hz goal, 20 is 50Hz goal
 
 template<typename T>
 inline T clamp(T value, T min, T max)
@@ -220,8 +222,14 @@ void loop()
     {
       coast();
     }
+    else if(isMotorOFF ()){
+      iter = 0;
+      coast();
+    }
     else
     {
+
+      
       const float clamped = clamp(state.positions[0], MOTOR_LOW_LIMIT, MOTOR_UPP_LIMIT);
       pos_mt_pid.set_reference(clamped);
       pos_mt_pid.set_reference_dot(1.0);
@@ -263,5 +271,10 @@ void loop()
     if (incoming_buffer_length > 0) memmove(incoming_buffer, incoming_buffer + read_count, incoming_buffer_length);
   }
 
-  delay(5);
+  const unsigned long end = millis();
+  const unsigned long duration = end - now;
+
+  if (duration < DELAY_MS){
+    delay(DELAY_MS - duration);
+  }
 }
