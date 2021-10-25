@@ -1,7 +1,7 @@
 // Per-robot configuration:
 
-const static float QUORI_CONFIG_ZERO_POSITION_WAIST = 0.18f - 0.07f + 0.25f;
-const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = -3.20f;
+const static float QUORI_CONFIG_ZERO_POSITION_WAIST = -2.007f;
+const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = 1.6457f;
 
 
 #define USE_USBCON
@@ -20,6 +20,8 @@ const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = -3.20f;
 #include "additional_serial.h"
 #include "LpfButter1.h"
 #include "pid_linear.hpp"
+
+const unsigned long DELAY_MS = 10;// 10 is 100Hz goal, 20 is 50Hz goal
 
 template<typename T>
 inline T clamp(T value, T min, T max)
@@ -198,6 +200,7 @@ size_t i = 0;
 void loop()
 {
   const unsigned long now = millis();
+  const unsigned long LpStrt = now;
   if (inited) ++i;
 
   angle_sensor_waist.SendGET3();
@@ -206,7 +209,9 @@ void loop()
   angle_sensor_mt.SendGET3();
   state.measured[0] = mt_filter_position.sample(ticksToAngle(-angle_sensor_mt.ReadAngle()));
   state.measurement_time = millis();
-
+  
+  bool mtrErr = isMotorErr();
+  unsigned int vinmV = getVIN();
 
   if (now - last_command_time > COMMAND_TIMEOUT)
   {
@@ -218,10 +223,17 @@ void loop()
 //    if (state.measured[0] >= MOTOR_UPP_LIMIT || state.measured[0] <= MOTOR_LOW_LIMIT || state.waist[0] >= JOINT_UPP_LIMIT || state.waist[0] <= JOINT_LOW_LIMIT)
     if ((state.waist[0] >= JOINT_UPP_LIMIT && (state.positions[0]/G_RATIO)>= JOINT_UPP_LIMIT) || (state.waist[0] <= JOINT_LOW_LIMIT && (state.positions[0]/G_RATIO)<= JOINT_LOW_LIMIT))
     {
+      iter = 0;
+      coast();
+    }
+    else if(mtrErr){
+      iter = 0;
       coast();
     }
     else
     {
+
+
       const float clamped = clamp(state.positions[0], MOTOR_LOW_LIMIT, MOTOR_UPP_LIMIT);
       pos_mt_pid.set_reference(clamped);
       pos_mt_pid.set_reference_dot(1.0);
@@ -233,6 +245,7 @@ void loop()
       float cmd = pos_mt_pid.PidCompute(state.measured[0], delta_secs, 1.0 / delta_secs);
 
       int serial_mt = 0;
+
       if (iter < 400)
       {
         const float factor = static_cast<float>(iter) / 400.0f;
@@ -263,5 +276,10 @@ void loop()
     if (incoming_buffer_length > 0) memmove(incoming_buffer, incoming_buffer + read_count, incoming_buffer_length);
   }
 
-  delay(5);
+  const unsigned long end = millis();
+  const unsigned long duration = end - LpStrt;
+  
+  if (duration < DELAY_MS){
+    delay(DELAY_MS - duration);
+  }
 }

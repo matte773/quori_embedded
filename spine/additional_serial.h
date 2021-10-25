@@ -3,6 +3,9 @@
 
 #define FORWARD 0x86
 #define REVERSE 0x85
+// VARIBLE IDs defined at: https://www.pololu.com/docs/0J77/6.4
+#define ERROR_STATUS 0
+#define VIN_STATUS 23
 
 //static const char MKR1000_LED       = 6;
 
@@ -24,4 +27,7 @@ void serial_motor_controls(int motor_tag,
                         float DIR_PACK,
                         int serial_val); 
 
-
+unsigned int getVIN();
+bool isMotorErr();
+int readByte();
+int getVariable(unsigned char variableID);
