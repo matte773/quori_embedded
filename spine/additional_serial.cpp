@@ -11,7 +11,7 @@ void serial_setup()
   //Serial1.begin(2000000);           // Begin Serial1
   Serial1.begin(115200);  
   //Serial3.begin(2000000); // Begin Serial3
-  Serial.setTimeout(1);//milliseconds to wait for serial data
+  Serial1.setTimeout(1);//milliseconds to wait for serial data
 }
 
 void serial_motor_controls(int motor_tag,
