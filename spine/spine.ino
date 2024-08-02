@@ -1,7 +1,7 @@
 // Per-robot configuration:
 
-const static float QUORI_CONFIG_ZERO_POSITION_WAIST = 0.6527f;
-const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = 0.1149f;
+const static float QUORI_CONFIG_ZERO_POSITION_WAIST = 1.4965f;
+const static float QUORI_CONFIG_ZERO_POSITION_MOTOR = 2.7852f;
 
 
 #define USE_USBCON
